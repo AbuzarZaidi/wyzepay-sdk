@@ -1,26 +1,55 @@
-import wally from "wallycore";
-import ParentAccount from "./parentAccount";
+// import wally from "wallycore";
+// import ParentAccount from "./parentAccount";
 import VIn from "./vin";
 import VOut from "./vout";
-import ByteArrayHelpers from "./byteArrayHelpers";
+// import ByteArrayHelpers from "./byteArrayHelpers";
+
+// Define types for better clarity and type safety
+type MasterKey = any;  // Replace 'any' with the appropriate type from wallycore
+type Seed = Uint8Array;
+type DerivedKey = any; // Replace 'any' with the appropriate type from wallycore
+type Address = string;
+type ConfidentialAddress = string;
+type ScriptPubKey = Buffer;
+type BlindingKey = Buffer;
+type Privkey = Buffer;
+type Pubkey = Buffer;
+
 class ChildAccount {
+  mnemonic: string;
+  masterKey: MasterKey | null;
+  seed: Seed | null;
+  childNo: number;
+  derivedKey: DerivedKey;
+  address: Address;
+  confidentialAddress: ConfidentialAddress;
+  masterBlindingKeyHex: string;
+  scriptPubKey: ScriptPubKey;
+  scriptPubKeyHex: string;
+  publicBlindingKey: BlindingKey;
+  privateBlindingKey: BlindingKey;
+  privateBlindingKeyHex: string;
+  publicBlindingKeyHex: string;
+  privkeyHex: string;
+  pubkeyHex: string;
+
   constructor(
-    mnemonic,
-    masterKey,
-    seed,
-    childNo,
-    derivedKey,
-    address,
-    confidentialAddress,
-    masterBlindingKeyHex,
-    scriptPubKey,
-    scriptPubKeyHex,
-    publicBlindingKey,
-    privateBlindingKey,
-    privateBlindingKeyHex,
-    publicBlindingKeyHex,
-    privkeyHex,
-    pubkeyHex
+    mnemonic: string,
+    masterKey: MasterKey | null,
+    seed: Seed | null,
+    childNo: number,
+    derivedKey: DerivedKey,
+    address: Address,
+    confidentialAddress: ConfidentialAddress,
+    masterBlindingKeyHex: string,
+    scriptPubKey: ScriptPubKey,
+    scriptPubKeyHex: string,
+    publicBlindingKey: BlindingKey,
+    privateBlindingKey: BlindingKey,
+    privateBlindingKeyHex: string,
+    publicBlindingKeyHex: string,
+    privkeyHex: string,
+    pubkeyHex: string
   ) {
     this.mnemonic = mnemonic;
     this.masterKey = masterKey;
@@ -39,7 +68,8 @@ class ChildAccount {
     this.privkeyHex = privkeyHex;
     this.pubkeyHex = pubkeyHex;
   }
-  static async create(mnemonic, masterKey, seed, childNo) {
+
+  static async create(mnemonic: string, masterKey: MasterKey | null, seed: Seed | null, childNo: number): Promise<ChildAccount> {
     const wally = await import("wallycore");
     const derivedKey = wally.bip32_key_from_parent(
       masterKey,
@@ -76,6 +106,7 @@ class ChildAccount {
     const privkeyHex = wally.hex_from_bytes(privkey);
     const pubkey = wally.ec_public_key_from_private_key(privkey);
     const pubkeyHex = wally.hex_from_bytes(pubkey);
+
     return new ChildAccount(
       mnemonic,
       masterKey,
@@ -95,31 +126,32 @@ class ChildAccount {
       pubkeyHex
     );
   }
-  getMasterBlindingKeyHex() {
+
+  getMasterBlindingKeyHex(): string {
     return this.masterBlindingKeyHex;
   }
 
-  getScriptPubKeyHex() {
+  getScriptPubKeyHex(): string {
     return this.scriptPubKeyHex;
   }
 
-  getPrivateBlindingKeyHex() {
+  getPrivateBlindingKeyHex(): string {
     return this.privateBlindingKeyHex;
   }
 
-  getPublicBlindingKeyHex() {
+  getPublicBlindingKeyHex(): string {
     return this.publicBlindingKeyHex;
   }
 
-  getPrivkeyHex() {
+  getPrivkeyHex(): string {
     return this.privkeyHex;
   }
 
-  getPubkeyHex() {
+  getPubkeyHex(): string {
     return this.pubkeyHex;
   }
 
-  async unBlindTxHex(txHex) {
+  async unBlindTxHex(txHex: string): Promise<any> {
     const wally = await import("wallycore");
     const tx = wally.tx_from_hex(
       txHex,
@@ -127,22 +159,24 @@ class ChildAccount {
     );
     return this.unBlindTx(tx);
   }
-  async unBlindTx(tx) {
+
+  async unBlindTx(tx: any): Promise<any> {
     try {
       const Wally = await import("wallycore");
-      const UnBlindedTx = await import("./UnBlindedTx").then(
+      const UnBlindedTx = await import("./unblindedTx").then(
         (module) => module.default
       );
       const numInputs = await Wally.tx_get_num_inputs(tx);
-      const vins = [];
+      const vins: VIn[] = [];
 
       for (let i = 0; i < numInputs; i++) {
         const voutN = await Wally.tx_get_input_index(tx, i);
         const txId = await Wally.tx_get_input_txhash(tx, i);
         vins.push(new VIn(txId, voutN));
       }
+
       const numOutputs = await Wally.tx_get_num_outputs(tx);
-      const vouts = [];
+      const vouts: VOut[] = [];
       let voutsInSize = 0;
       for (let vout = 0; vout < numOutputs; vout++) {
         const scriptPubkeyOut = Wally.tx_get_output_script(tx, vout);
@@ -182,47 +216,49 @@ class ChildAccount {
         );
         voutsInSize++;
       }
+
       return new UnBlindedTx(vins, vouts.slice(0, voutsInSize), tx);
     } catch (error) {
       console.error("Error in unblinding transaction:", error);
       throw error;
     }
   }
-  getDerivedKey() {
+
+  getDerivedKey(): DerivedKey {
     return this.derivedKey;
   }
 
-  getAddress() {
+  getAddress(): Address {
     return this.address;
   }
 
-  getMasterBlindingKey() {
-    return this.masterBlindingKey;
+  getMasterBlindingKey(): BlindingKey {
+    return this.masterBlindingKeyHex; // or actual masterBlindingKey as needed
   }
 
-  getScriptPubKey() {
+  getScriptPubKey(): ScriptPubKey {
     return this.scriptPubKey;
   }
 
-  getPrivateBlindingKey() {
+  getPrivateBlindingKey(): BlindingKey {
     return this.privateBlindingKey;
   }
 
-  getPublicBlindingKey() {
+  getPublicBlindingKey(): BlindingKey {
     return this.publicBlindingKey;
   }
 
-  getConfidentialAddress() {
+  getConfidentialAddress(): ConfidentialAddress {
     return this.confidentialAddress;
   }
 
-  getPrivkey() {
-    return this.privkey;
+  getPrivkey(): Privkey {
+    return this.privkeyHex; // Or actual private key buffer as needed
   }
 
-  getPubkey() {
-    return this.pubkey;
+  getPubkey(): Pubkey {
+    return this.pubkeyHex; // Or actual public key buffer as needed
   }
 }
 
-module.exports = ChildAccount;
+export default ChildAccount;

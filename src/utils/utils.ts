@@ -1,5 +1,6 @@
-const BigNumber = require("bignumber.js");
-function hex2ascii(hexx) {
+import BigNumber from "bignumber.js";
+
+function hex2ascii(hexx: string): string {
   let hex = hexx.toString();
   let str = "";
   for (let i = 0; i < hex.length && hex.substr(i, 2) !== "00"; i += 2) {
@@ -7,14 +8,35 @@ function hex2ascii(hexx) {
   }
   return str;
 }
-function hex2Utf8(hexx) {
+
+function hex2Utf8(hexx: string): string {
   let hex = hexx.toString();
   return decodeURIComponent("%" + hex.match(/.{1,2}/g)?.join("%"));
 }
 
 const DIVIDE_FACTOR = 1000000;
 
-function addAmount(txid, vout, balancesByAsset) {
+interface Vout {
+  asset: string;
+  value: string;
+  n: number;
+}
+
+interface AssetData {
+  amount: BigNumber;
+  amountPerUtxo: { txid: string; amount: BigNumber; vout: number }[];
+  assetMetadata?: any;
+}
+
+interface BalancesByAsset {
+  [asset: string]: AssetData;
+}
+
+function addAmount(
+  txid: string,
+  vout: Vout,
+  balancesByAsset: BalancesByAsset
+): void {
   const assetData = balancesByAsset[vout.asset];
   const voutAmount = new BigNumber(vout.value).dividedBy(DIVIDE_FACTOR);
   if (!assetData) {
@@ -24,28 +46,21 @@ function addAmount(txid, vout, balancesByAsset) {
     };
     return;
   }
-  if (assetData && assetData.amount) {
-    balancesByAsset[vout.asset] = {
-      ...balancesByAsset[vout.asset],
-      amount: voutAmount.plus(assetData.amount),
-      amountPerUtxo: [
-        ...balancesByAsset[vout.asset].amountPerUtxo,
-        { txid, amount: voutAmount, vout: vout.n },
-      ],
-    };
-    return;
-  }
   balancesByAsset[vout.asset] = {
-    ...balancesByAsset[vout.asset],
-    amount: voutAmount,
+    ...assetData,
+    amount: assetData.amount.plus(voutAmount),
     amountPerUtxo: [
-      ...balancesByAsset[vout.asset].amountPerUtxo,
+      ...assetData.amountPerUtxo,
       { txid, amount: voutAmount, vout: vout.n },
     ],
   };
 }
 
-function appendAssetMetadataIfNotExists(asset, assetMetadata, balancesByAsset) {
+function appendAssetMetadataIfNotExists(
+  asset: string,
+  assetMetadata: any,
+  balancesByAsset: BalancesByAsset
+): void {
   if (!balancesByAsset[asset].assetMetadata) {
     balancesByAsset[asset] = {
       ...balancesByAsset[asset],
@@ -54,19 +69,17 @@ function appendAssetMetadataIfNotExists(asset, assetMetadata, balancesByAsset) {
   }
 }
 
-function sortByEarliestUnlockDate(assetArr) {
-  assetArr.sort((a, b) => {
-    if (a.unlockDate > b.unlockDate) {
-      return 1;
-    }
-    if (a.unlockDate < b.unlockDate) {
-      return -1;
-    }
-    return 0;
-  });
+interface Asset {
+  unlockDate: number;
 }
 
-function sortByBiggestAmount(amountPerUtxo) {
+function sortByEarliestUnlockDate(assetArr: Asset[]): void {
+  assetArr.sort((a, b) => a.unlockDate - b.unlockDate);
+}
+
+function sortByBiggestAmount(
+  amountPerUtxo: { amount: BigNumber; txid: string; vout: number }[]
+): void {
   amountPerUtxo.sort((a, b) => {
     if (a.amount.isLessThan(b.amount)) {
       return 1;
@@ -78,8 +91,11 @@ function sortByBiggestAmount(amountPerUtxo) {
   });
 }
 
-function getUtxosForAmount(amountToSettle, amountPerUtxo) {
-  const chosenUtxos = [];
+function getUtxosForAmount(
+  amountToSettle: BigNumber,
+  amountPerUtxo: { amount: BigNumber; txid: string; vout: number }[]
+): { amount: BigNumber; txid: string; vout: number }[] {
+  const chosenUtxos: { amount: BigNumber; txid: string; vout: number }[] = [];
   let missingAmount = amountToSettle;
 
   for (const utxo of amountPerUtxo) {
@@ -94,7 +110,7 @@ function getUtxosForAmount(amountToSettle, amountPerUtxo) {
   return chosenUtxos;
 }
 
-module.exports = {
+export {
   hex2ascii,
   hex2Utf8,
   DIVIDE_FACTOR,

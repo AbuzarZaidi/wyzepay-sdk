@@ -1,29 +1,34 @@
 import wally from "wallycore";
 
 class VIn {
-  constructor(txId, voutN) {
+  private txId: Uint8Array; // Assuming txId is a Uint8Array
+  private voutN: number;
+  private txIdHex: string | null = null;
+
+  constructor(txId: Uint8Array, voutN: number) {
     this.txId = txId;
     this.voutN = voutN;
-    this.txIdHex = null;
   }
-  getTxId() {
+
+  getTxId(): Uint8Array {
     return this.txId;
   }
 
-  getVoutN() {
+  getVoutN(): number {
     return this.voutN;
   }
 
-  async getTxIdHex() {
-    const wally = await import("wallycore");
+  async getTxIdHex(): Promise<string> {
     if (!this.txIdHex) {
+      const wally = await import("wallycore");
       this.txIdHex = wally.hex_from_bytes(this.flipBytes(this.txId));
     }
     return this.txIdHex;
   }
-  flipBytes(bytes) {
-    return Buffer.from(bytes).reverse();
+
+  private flipBytes(bytes: Uint8Array): Uint8Array {
+    return Uint8Array.from(bytes).reverse();
   }
 }
 
-module.exports = VIn;
+export default VIn;
