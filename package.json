@@ -1,0 +1,20 @@
+{
+  "name": "wyzepay-sdk",
+  "version": "1.0.0",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsup"
+  },
+  "author": "Abuzar Zaidi",
+  "keywords": [
+    "Blockchain"
+  ],
+  "license": "ISC",
+  "description": "Wyzepay-sdk is use to communication with blockchain to create new transaction and unblind transaction.",
+  "dependencies": {
+    "tsup": "^8.3.5",
+    "typescript": "^5.6.3"
+  }
+}
