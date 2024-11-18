@@ -1,55 +1,23 @@
-// import wally from "wallycore";
-// import ParentAccount from "./parentAccount";
-import VIn from "./vin";
-import VOut from "./vout";
-// import ByteArrayHelpers from "./byteArrayHelpers";
-
-// Define types for better clarity and type safety
-type MasterKey = any;  // Replace 'any' with the appropriate type from wallycore
-type Seed = Uint8Array;
-type DerivedKey = any; // Replace 'any' with the appropriate type from wallycore
-type Address = string;
-type ConfidentialAddress = string;
-type ScriptPubKey = Buffer;
-type BlindingKey = Buffer;
-type Privkey = Buffer;
-type Pubkey = Buffer;
-
+import VIn from "./vin.js";
+import VOut from "./vout.js";
 class ChildAccount {
-  mnemonic: string;
-  masterKey: MasterKey | null;
-  seed: Seed | null;
-  childNo: number;
-  derivedKey: DerivedKey;
-  address: Address;
-  confidentialAddress: ConfidentialAddress;
-  masterBlindingKeyHex: string;
-  scriptPubKey: ScriptPubKey;
-  scriptPubKeyHex: string;
-  publicBlindingKey: BlindingKey;
-  privateBlindingKey: BlindingKey;
-  privateBlindingKeyHex: string;
-  publicBlindingKeyHex: string;
-  privkeyHex: string;
-  pubkeyHex: string;
-
   constructor(
-    mnemonic: string,
-    masterKey: MasterKey | null,
-    seed: Seed | null,
-    childNo: number,
-    derivedKey: DerivedKey,
-    address: Address,
-    confidentialAddress: ConfidentialAddress,
-    masterBlindingKeyHex: string,
-    scriptPubKey: ScriptPubKey,
-    scriptPubKeyHex: string,
-    publicBlindingKey: BlindingKey,
-    privateBlindingKey: BlindingKey,
-    privateBlindingKeyHex: string,
-    publicBlindingKeyHex: string,
-    privkeyHex: string,
-    pubkeyHex: string
+    mnemonic,
+    masterKey,
+    seed,
+    childNo,
+    derivedKey,
+    address,
+    confidentialAddress,
+    masterBlindingKeyHex,
+    scriptPubKey,
+    scriptPubKeyHex,
+    publicBlindingKey,
+    privateBlindingKey,
+    privateBlindingKeyHex,
+    publicBlindingKeyHex,
+    privkeyHex,
+    pubkeyHex
   ) {
     this.mnemonic = mnemonic;
     this.masterKey = masterKey;
@@ -68,8 +36,7 @@ class ChildAccount {
     this.privkeyHex = privkeyHex;
     this.pubkeyHex = pubkeyHex;
   }
-
-  static async create(mnemonic: string, masterKey: MasterKey | null, seed: Seed | null, childNo: number): Promise<ChildAccount> {
+  static async create(mnemonic, masterKey, seed, childNo) {
     const wally = await import("wallycore");
     const derivedKey = wally.bip32_key_from_parent(
       masterKey,
@@ -106,7 +73,6 @@ class ChildAccount {
     const privkeyHex = wally.hex_from_bytes(privkey);
     const pubkey = wally.ec_public_key_from_private_key(privkey);
     const pubkeyHex = wally.hex_from_bytes(pubkey);
-
     return new ChildAccount(
       mnemonic,
       masterKey,
@@ -126,32 +92,31 @@ class ChildAccount {
       pubkeyHex
     );
   }
-
-  getMasterBlindingKeyHex(): string {
+  getMasterBlindingKeyHex() {
     return this.masterBlindingKeyHex;
   }
 
-  getScriptPubKeyHex(): string {
+  getScriptPubKeyHex() {
     return this.scriptPubKeyHex;
   }
 
-  getPrivateBlindingKeyHex(): string {
+  getPrivateBlindingKeyHex() {
     return this.privateBlindingKeyHex;
   }
 
-  getPublicBlindingKeyHex(): string {
+  getPublicBlindingKeyHex() {
     return this.publicBlindingKeyHex;
   }
 
-  getPrivkeyHex(): string {
+  getPrivkeyHex() {
     return this.privkeyHex;
   }
 
-  getPubkeyHex(): string {
+  getPubkeyHex() {
     return this.pubkeyHex;
   }
 
-  async unBlindTxHex(txHex: string): Promise<any> {
+  async unBlindTxHex(txHex) {
     const wally = await import("wallycore");
     const tx = wally.tx_from_hex(
       txHex,
@@ -159,24 +124,22 @@ class ChildAccount {
     );
     return this.unBlindTx(tx);
   }
-
-  async unBlindTx(tx: any): Promise<any> {
+  async unBlindTx(tx) {
     try {
       const Wally = await import("wallycore");
-      const UnBlindedTx = await import("./unblindedTx").then(
+      const UnBlindedTx = await import("./unBlindedTx.js").then(
         (module) => module.default
       );
       const numInputs = await Wally.tx_get_num_inputs(tx);
-      const vins: VIn[] = [];
+      const vins = [];
 
       for (let i = 0; i < numInputs; i++) {
         const voutN = await Wally.tx_get_input_index(tx, i);
         const txId = await Wally.tx_get_input_txhash(tx, i);
         vins.push(new VIn(txId, voutN));
       }
-
       const numOutputs = await Wally.tx_get_num_outputs(tx);
-      const vouts: VOut[] = [];
+      const vouts = [];
       let voutsInSize = 0;
       for (let vout = 0; vout < numOutputs; vout++) {
         const scriptPubkeyOut = Wally.tx_get_output_script(tx, vout);
@@ -216,49 +179,48 @@ class ChildAccount {
         );
         voutsInSize++;
       }
-
       return new UnBlindedTx(vins, vouts.slice(0, voutsInSize), tx);
     } catch (error) {
       console.error("Error in unblinding transaction:", error);
       throw error;
     }
   }
-
-  getDerivedKey(): DerivedKey {
+  getDerivedKey() {
     return this.derivedKey;
   }
 
-  getAddress(): Address {
+  getAddress() {
     return this.address;
   }
 
-  getMasterBlindingKey(): BlindingKey {
-    return this.masterBlindingKeyHex; // or actual masterBlindingKey as needed
+  getMasterBlindingKey() {
+    return this.masterBlindingKey;
   }
 
-  getScriptPubKey(): ScriptPubKey {
+  getScriptPubKey() {
     return this.scriptPubKey;
   }
 
-  getPrivateBlindingKey(): BlindingKey {
+  getPrivateBlindingKey() {
     return this.privateBlindingKey;
   }
 
-  getPublicBlindingKey(): BlindingKey {
+  getPublicBlindingKey() {
     return this.publicBlindingKey;
   }
 
-  getConfidentialAddress(): ConfidentialAddress {
+  getConfidentialAddress() {
     return this.confidentialAddress;
   }
 
-  getPrivkey(): Privkey {
-    return this.privkeyHex; // Or actual private key buffer as needed
+  getPrivkey() {
+    return this.privkey;
   }
 
-  getPubkey(): Pubkey {
-    return this.pubkeyHex; // Or actual public key buffer as needed
+  getPubkey() {
+    return this.pubkey;
   }
 }
 
+// module.exports = ChildAccount;
 export default ChildAccount;

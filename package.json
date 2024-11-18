@@ -1,11 +1,11 @@
 {
   "name": "wyzepay-sdk",
   "version": "1.0.0",
-  "main": "./dist/index.js",
-  "module": "./dist/index.mjs",
-  "types": "./dist/index.d.ts",
+  "main": "./src/index.js",
+  "type": "module",
   "scripts": {
-    "build": "tsup"
+    "build": "tsup",
+    "start":"node src/index.js"
   },
   "author": "Abuzar Zaidi",
   "keywords": [

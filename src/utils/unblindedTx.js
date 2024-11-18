@@ -1,36 +1,21 @@
 import * as wally from "wallycore";
-import ByteArrayHelpers from "./byteArrayHelpers";
-
-interface VOut {
-  getN(): number;
-  getAbf(): Uint8Array;
-  getVbf(): Uint8Array;
-  getAssetId(): Uint8Array;
-  getAssetGenerator(): Uint8Array;
-}
+import ByteArrayHelpers from "./byteArrayHelpers.js";
 
 class UnBlindedTx {
-  private vins: any[]; // Replace `any` with a specific type if available
-  private vouts: VOut[];
-  private sourceTx: any; // Replace `any` with the specific transaction type
-  private abfs: Uint8Array = new Uint8Array();
-  private vbfs: Uint8Array = new Uint8Array();
-  private assetIds: Uint8Array = new Uint8Array();
-  private assetGenerators: Uint8Array = new Uint8Array();
-  private voutMap: Map<number, VOut> = new Map();
-  private id?: Uint8Array;
-  private idHex?: string;
-
-  constructor(vins: any[], vouts: VOut[], sourceTx: any) {
+  constructor(vins, vouts, sourceTx) {
     this.vins = vins;
     this.vouts = vouts;
     this.sourceTx = sourceTx;
 
+    this.abfs = [];
+    this.vbfs = [];
+    this.assetIds = [];
+    this.assetGenerators = [];
+    this.voutMap = new Map();
     this.initializeVouts();
     this.computeTransactionId();
   }
-
-  private initializeVouts(): void {
+  initializeVouts() {
     this.vouts.forEach((vout) => {
       this.voutMap.set(vout.getN(), vout);
       this.abfs = ByteArrayHelpers.concatByteArrays(this.abfs, vout.getAbf());
@@ -45,8 +30,7 @@ class UnBlindedTx {
       );
     });
   }
-
-  private computeTransactionId(): void {
+  computeTransactionId() {
     try {
       const txBytes = wally.tx_to_bytes(this.sourceTx, 0);
       this.id = wally.sha256d(txBytes);
@@ -57,58 +41,53 @@ class UnBlindedTx {
       );
     }
   }
-
-  public getIdHex(): string {
+  getIdHex() {
     if (!this.idHex) {
-      if (!this.id) {
-        throw new Error("Transaction ID not computed");
-      }
       this.idHex = wally.hex_from_bytes(ByteArrayHelpers.flipBytes(this.id));
     }
     return this.idHex;
   }
-
-  public getVins(): any[] {
+  getVins() {
     return this.vins;
   }
 
-  public getVinsCount(): number {
+  getVinsCount() {
     return this.vins.length;
   }
 
-  public getVouts(): VOut[] {
+  getVouts() {
     return this.vouts;
   }
 
-  public getVoutCount(): number {
+  getVoutCount() {
     return this.vouts.length;
   }
 
-  public getVout(n: number): VOut | undefined {
+  getVout(n) {
     return this.voutMap.get(n);
   }
 
-  public getAbfs(): Uint8Array {
+  getAbfs() {
     return this.abfs;
   }
 
-  public getVbfs(): Uint8Array {
+  getVbfs() {
     return this.vbfs;
   }
 
-  public getAssetIds(): Uint8Array {
+  getAssetIds() {
     return this.assetIds;
   }
 
-  public getAssetGenerators(): Uint8Array {
+  getAssetGenerators() {
     return this.assetGenerators;
   }
 
-  public getId(): Uint8Array | undefined {
+  getId() {
     return this.id;
   }
 
-  public getSourceTx(): any {
+  getSourceTx() {
     return this.sourceTx;
   }
 }
