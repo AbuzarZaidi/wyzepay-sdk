@@ -221,6 +221,4 @@ class ChildAccount {
     return this.pubkey;
   }
 }
-
-// module.exports = ChildAccount;
 export default ChildAccount;

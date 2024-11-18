@@ -24,5 +24,4 @@ class VIn {
   }
 }
 
-// module.exports = VIn;
 export default VIn;

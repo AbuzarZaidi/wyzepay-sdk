@@ -1,4 +1,4 @@
-import { getBalances, getUserAddress } from "./utils/wyzepayFunc.js";
+import { getBalances, getUserAddress } from "./utils/main.js";
 import axios from "axios";
 import BigNumber from "bignumber.js";
 import { generateMnemonic } from "bip39";
@@ -9,24 +9,23 @@ export const generateMnemonicHandler = async () => {
 export const getAddressHandler = async () => {
  const mnemonic= await generateMnemonicHandler()
   let userAddresses = await getUserAddress(mnemonic);
-  console.log(userAddresses,'userAddresses')
-  return userAddresses;
+  return {address:userAddresses.address,confidentialAddress:userAddresses.confidentialAddress,mnemonic};
 };
 export const getBalancesByMerchant = async () => {
   const response = await _getBalancesByMerchant();
   return response;
 };
-const merchantListHandler = async () => {
-  const merchants = await axios.get(
-    "https://qa2.abwp.io/api/v2/consumer/merchants",
-    {
-      headers: {
-        Authorization: "Api-Key 584dd6ac-d044-4a87-9358-fee65225b410",
-      },
-    }
-  );
-  return merchants.data.merchants;
-};
+// const merchantListHandler = async () => {
+//   const merchants = await axios.get(
+//     "https://qa2.abwp.io/api/v2/consumer/merchants",
+//     {
+//       headers: {
+//         Authorization: "Api-Key 584dd6ac-d044-4a87-9358-fee65225b410",
+//       },
+//     }
+//   );
+//   return merchants.data.merchants;
+// };
 const _getBalancesByMerchant = async () => {
   const merchantList = [];
   let sdkBalances = await getBalances();

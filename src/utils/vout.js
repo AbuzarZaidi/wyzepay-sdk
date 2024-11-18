@@ -91,5 +91,4 @@ class VOut {
   }
 }
 
-// module.exports = VOut;
 export default VOut;

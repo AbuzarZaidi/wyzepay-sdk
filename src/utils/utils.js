@@ -94,13 +94,3 @@ function getUtxosForAmount(amountToSettle, amountPerUtxo) {
   return chosenUtxos;
 }
 
-// module.exports = {
-//   hex2ascii,
-//   hex2Utf8,
-//   DIVIDE_FACTOR,
-//   addAmount,
-//   appendAssetMetadataIfNotExists,
-//   sortByEarliestUnlockDate,
-//   sortByBiggestAmount,
-//   getUtxosForAmount,
-// };
