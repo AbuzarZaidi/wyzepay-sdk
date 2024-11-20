@@ -127,7 +127,7 @@ class ChildAccount {
   async unBlindTx(tx) {
     try {
       const Wally = await import("wallycore");
-      const UnBlindedTx = await import("./unBlindedTx.js").then(
+      const UnBlindedTx = await import("./unblindedTx.js").then(
         (module) => module.default
       );
       const numInputs = await Wally.tx_get_num_inputs(tx);
