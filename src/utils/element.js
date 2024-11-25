@@ -1,10 +1,20 @@
 import axios from "axios";
-import { unblindTx, deriveAccountNative } from "./core.js";
+import { unblindTx, deriveAccountNative, createSignedBlindedTx } from "./core.js";
 import BigNumber from "bignumber.js";
 const _getFromBlockExplorer = async (url) => {
   return axios.get(`https://explorer-qa2.abwp.io${url}`);
 };
-
+export const sendToAddress=async(
+  destinationAddress,
+  amountPerOutput)=> {
+  const respone=createSignedBlindedTx(
+    "abuse pelican major nut another stomach portion tool believe kid intact dune march anchor exile utility wine project ghost easy renew exhaust weapon daughter",
+    0,
+    destinationAddress,
+    amountPerOutput,
+  );
+  return respone;
+}
 export const getBlindedUtxos = async (address) => {
   try {
     const response = await _getFromBlockExplorer(`/address/${address}/utxo`);

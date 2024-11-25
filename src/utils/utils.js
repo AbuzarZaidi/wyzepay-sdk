@@ -1,5 +1,5 @@
 import BigNumber from "bignumber.js";
-function hex2ascii(hexx) {
+export function hex2ascii(hexx) {
   let hex = hexx.toString();
   let str = "";
   for (let i = 0; i < hex.length && hex.substr(i, 2) !== "00"; i += 2) {
@@ -12,7 +12,7 @@ export function hex2Utf8(hexx) {
   return decodeURIComponent("%" + hex.match(/.{1,2}/g)?.join("%"));
 }
 
-const DIVIDE_FACTOR = 1000000;
+export const DIVIDE_FACTOR = 1000000;
 
 export function addAmount(txid, vout, balancesByAsset) {
   const assetData = balancesByAsset[vout.asset];
@@ -54,7 +54,7 @@ export function appendAssetMetadataIfNotExists(asset, assetMetadata, balancesByA
   }
 }
 
-function sortByEarliestUnlockDate(assetArr) {
+export function sortByEarliestUnlockDate(assetArr) {
   assetArr.sort((a, b) => {
     if (a.unlockDate > b.unlockDate) {
       return 1;
@@ -66,7 +66,7 @@ function sortByEarliestUnlockDate(assetArr) {
   });
 }
 
-function sortByBiggestAmount(amountPerUtxo) {
+export function sortByBiggestAmount(amountPerUtxo) {
   amountPerUtxo.sort((a, b) => {
     if (a.amount.isLessThan(b.amount)) {
       return 1;
@@ -78,7 +78,7 @@ function sortByBiggestAmount(amountPerUtxo) {
   });
 }
 
-function getUtxosForAmount(amountToSettle, amountPerUtxo) {
+export function getUtxosForAmount(amountToSettle, amountPerUtxo) {
   const chosenUtxos = [];
   let missingAmount = amountToSettle;
 

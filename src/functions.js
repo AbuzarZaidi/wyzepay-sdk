@@ -1,4 +1,4 @@
-import { getBalances, getUserAddress } from "./utils/main.js";
+import { getBalances, getUserAddress,redeemTokens } from "./utils/main.js";
 import axios from "axios";
 import BigNumber from "bignumber.js";
 import { generateMnemonic } from "bip39";
@@ -15,17 +15,6 @@ export const getBalancesByMerchant = async () => {
   const response = await _getBalancesByMerchant();
   return response;
 };
-// const merchantListHandler = async () => {
-//   const merchants = await axios.get(
-//     "https://qa2.abwp.io/api/v2/consumer/merchants",
-//     {
-//       headers: {
-//         Authorization: "Api-Key 584dd6ac-d044-4a87-9358-fee65225b410",
-//       },
-//     }
-//   );
-//   return merchants.data.merchants;
-// };
 const _getBalancesByMerchant = async () => {
   const merchantList = [];
   let sdkBalances = await getBalances();
@@ -68,3 +57,13 @@ const _getBalancesByMerchant = async () => {
   );
   return balancesByMerchant;
 };
+
+
+// destinationAddress,
+//   merchantTicker,  
+//   redemptionAmount
+(async () => {
+  let redemptionAmount=new BigNumber(22)
+  redeemTokens('AzpueHHe3K5dug5Q5CUu5tCk1PAGM83v4fmLSQD5DKTd4WuUCBXcSQSRYjcLaTjPXmCPukxVfBfjdsmL','DSLB',redemptionAmount)
+console.log(redemptionAmount,'redemptionAmount')
+})()

@@ -1,3 +1,4 @@
+import ParentAccount from "./parentAccount.js";
 import VIn from "./vin.js";
 import VOut from "./vout.js";
 class ChildAccount {
@@ -92,6 +93,270 @@ class ChildAccount {
       pubkeyHex
     );
   }
+  async signTransaction(tx, inputs) {
+    const wally = await import("wallycore");
+    let voutN = 0;
+
+    // Add raw inputs to the transaction
+    for (const vout of inputs) {
+        wally.tx_add_elements_raw_input(
+            tx,
+            vout.getTxId(),
+            vout.getN(),
+            0xffffffff, // Sequence
+            null,       // Script witness stack (null)
+            null,       // Asset (null)
+            null,       // Value (null)
+            null,       // Value blinding (null)
+            null,       // Asset blinding (null)
+            null,       // Extra (null)
+            null,       // Issuance amount (null)
+            null,       // Inflation keys (null)
+            null,       // Issuance blinding (null)
+            0           // Flags
+        );
+    }
+
+    // Sign each input
+    for (const vout of inputs) {
+        const sighash = new Uint8Array(wally.SHA256_LEN);
+
+        // Get the BTC signature hash
+        wally.tx_get_btc_signature_hash(
+            tx,
+            voutN,
+            vout.getScriptPubKey(),
+            0,
+            Wally.WALLY_SIGHASH_ALL,
+            0,
+            sighash
+        );
+
+        // Generate the signature from the private key and hash
+        const signature = wally.ec_sig_from_bytes(
+            privkey, // Assumes `privkey` is defined and accessible
+            sighash,
+            wally.EC_FLAG_ECDSA
+        );
+
+        // Create the scriptsig
+        let scriptsig = new Uint8Array(wally.WALLY_SCRIPTSIG_P2PKH_MAX_LEN);
+        wally.scriptsig_p2pkh_from_sig(
+            pubkey, // Assumes `pubkey` is defined and accessible
+            signature,
+            wally.WALLY_SIGHASH_ALL,
+            scriptsig
+        );
+
+        // Remove trailing zeros from the scriptsig
+        scriptsig = scriptsig.slice(0, scriptsig.findIndex((byte) => byte === 0));
+
+        // Set the input script for the transaction
+        wally.tx_set_input_script(tx, voutN, scriptsig);
+
+        voutN++;
+    }
+}
+calculateChange(vouts, amounts) {
+  if (vouts.length !== amounts.length) {
+      throw new Error("You must specify an amount to transfer for each vout, if you wish to not transfer a vout use 0");
+  }
+
+  let insertIndex = 0;
+  const change = new Array(vouts.length);
+  
+  for (let i = 0; i < vouts.length; i++) {
+      const outputChange = vouts[i].value - amounts[i];
+      if (outputChange < 0) {
+          throw new Error(`Amount to transfer greater than vout value for vout ${vouts[i].n}`);
+      } else if (outputChange > 0) {
+          // Only add non-zero change amounts
+          change[insertIndex] = outputChange;
+          insertIndex++;
+      }
+  }
+
+  // Return array of valid changes (ignoring trailing 0s)
+  return change.slice(0, insertIndex);
+}
+concatByteArrays(...arrays) {
+  // Calculate the total length of the concatenated array
+  const totalLength = arrays.reduce((sum, arr) => sum + arr.length, 0);
+
+  // Create a new Uint8Array with the total length
+  const result = new Uint8Array(totalLength);
+
+  // Copy each array into the result
+  let offset = 0;
+  for (const arr of arrays) {
+      result.set(arr, offset);
+      offset += arr.length;
+  }
+
+  return result;
+}
+ async createBlindTx(inputs, destination, amountsToTransfer) {
+  try {
+    const wally = await import("wallycore");
+  let concatAbfs = [];
+  let concatVbfs = [];
+  let concatAssetIds = [];
+  let concatAssetGenerators = [];
+
+  // Concatenate values from inputs
+  for (const vout of inputs) {
+      concatAbfs.push(concatAbfs, vout.abf);
+      concatVbfs.push(concatVbfs, vout.vbf);
+      concatAssetIds.push(concatAssetIds, vout.assetId);
+      concatAssetGenerators.push(concatAssetGenerators, vout.assetGenerator);
+  }
+
+  let values=[]
+
+  // Combine outputs and changes
+  let outputOffset = 0;
+  inputs.forEach((input, i) => {
+    // Extract only the BigInt value from the 'value' array.
+    const inputValue = input.value.find((v) => typeof v === 'bigint');
+
+    if (inputValue === undefined) {
+        throw new Error(`No valid BigInt value found in input.value for input at index ${i}`);
+    }
+
+    // Add amountsToTransfer as BigInt to the values array.
+    values[i + outputOffset + inputs.length] = BigInt(amountsToTransfer[i]);
+
+    // Calculate output change as BigInt.
+    const outputChange = inputValue - BigInt(amountsToTransfer[i]);
+    if (outputChange > 0n) {
+        values[i + outputOffset + inputs.length + 1] = outputChange;
+        outputOffset++;
+    }
+});
+console.log(values,'values')
+console.log(outputOffset,'outputOffset')
+
+
+  const numOutputs = values.length - inputs.length;
+  const abfsOut = ParentAccount.randomBytes(32 * numOutputs);
+  const vbfsOut = ParentAccount.randomBytes(32 * (numOutputs - 1));
+
+  const abfsAll = (concatAbfs, abfsOut);
+  const vbfsAll = this.concatByteArrays(concatVbfs, vbfsOut);
+  const finalVbf = wally.asset_final_vbf(values, inputs.lenconcatByteArraysgth, abfsAll, vbfsAll);
+
+  const updatedVbfsOut = concatByteArrays(vbfsOut, finalVbf);
+  const TRANSACTION_VERSION_TO_USE = 2;
+
+  const outputTx = wally.tx_init(
+      TRANSACTION_VERSION_TO_USE,
+      0, // locktime
+      0, // inputs_allocation_len
+      0  // outputs_allocation_len
+  );
+console.log(outputTx,'outputTx')
+  let changeOffset = 0;
+  inputs.forEach((vout, i) => {
+      const ephemeralPrivkey = ParentAccount.generateEphemeralKey();
+      const ephemeralPubkey = wally.ec_public_key_from_private_key(ephemeralPrivkey);
+
+      const changeEphemeralPrivkey = ParentAccount.generateEphemeralKey();
+      const changeEphemeralPubkey = wally.ec_public_key_from_private_key(changeEphemeralPrivkey);
+
+      const abf = abfsOut.slice(i * 32 + changeOffset * 32, (i + 1) * 32 + changeOffset * 32);
+      const vbf = updatedVbfsOut.slice(i * 32 + changeOffset * 32, (i + 1) * 32 + changeOffset * 32);
+
+      const generator = wally.asset_generator_from_bytes(vout.assetId, abf);
+      const valueCommitment = wally.asset_value_commitment(amountsToTransfer[i], vbf, generator);
+      const rangeProof = wally.asset_rangeproof(
+          amountsToTransfer[i],
+          destination.blindingPubkey,
+          ephemeralPrivkey,
+          vout.assetId,
+          abf,
+          vbf,
+          valueCommitment,
+          destination.scriptPubkey,
+          generator,
+          1, // min_value
+          0, // exp
+          36 // min_bits
+      );
+
+      const surjectionProof = wally.asset_surjectionproof(
+          vout.assetId,
+          abf,
+          generator,
+          ParentAccount.randomBytes(32),
+          concatAssetIds,
+          concatAbfs,
+          concatAssetGenerators
+      );
+
+      wally.tx_add_elements_raw_output(
+          outputTx,
+          destination.scriptPubkey,
+          generator,
+          valueCommitment,
+          ephemeralPubkey,
+          surjectionProof,
+          rangeProof,
+          0
+      );
+
+      const change = vout.value - amountsToTransfer[i];
+      if (change > 0) {
+          const abfChange = abfsOut.slice((i + 1) * 32 + changeOffset * 32, (i + 2) * 32 + changeOffset * 32);
+          const vbfChange = updatedVbfsOut.slice((i + 1) * 32 + changeOffset * 32, (i + 2) * 32 + changeOffset * 32);
+          const changeGenerator = wally.asset_generator_from_bytes(vout.assetId, abfChange);
+          const changeValueCommitment = wally.asset_value_commitment(change, vbfChange, changeGenerator);
+          const changeRangeProof = wally.asset_rangeproof(
+              change,
+              publicBlindingKey,
+              changeEphemeralPrivkey,
+              vout.assetId,
+              abfChange,
+              vbfChange,
+              changeValueCommitment,
+              scriptPubKey,
+              changeGenerator,
+              1,
+              0,
+              36
+          );
+
+          const changeSurjectionProof = wally.asset_surjectionproof(
+              vout.assetId,
+              abfChange,
+              changeGenerator,
+              ParentAccount.randomBytes(32),
+              concatAssetIds,
+              concatAbfs,
+              concatAssetGenerators
+          );
+
+          wally.tx_add_elements_raw_output(
+              outputTx,
+              scriptPubKey,
+              changeGenerator,
+              changeValueCommitment,
+              changeEphemeralPubkey,
+              changeSurjectionProof,
+              changeRangeProof,
+              0
+          );
+
+          changeOffset++;
+      }
+  });
+
+  return outputTx;
+  } catch (error) {
+    console.log(error,'createBlindTx error')
+  }
+}
+
+
   getMasterBlindingKeyHex() {
     return this.masterBlindingKeyHex;
   }

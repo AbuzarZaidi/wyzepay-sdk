@@ -1,36 +1,63 @@
 import ParentAccount from "./parentAccount.js";
 import VIn from "./vin.js";
 import VOut from "./vout.js";
-export const unblindTx2 = async (mnemonic, childNo, rawTxHex) => {
+import Destination from './destination.js'
+export const createSignedBlindedTx = async (
+  mnemonic,
+  childNo,
+  destinationAddress,
+  txPayload,
+) => {
+  const newRawTx = await createBlindTx(
+    mnemonic,
+    childNo,
+    destinationAddress,
+    JSON.stringify(txPayload),
+  );
+  return newRawTx;
+};
+async function createBlindTx(mnemonic, childNo, destinationAddress, transactionPayload, promise) {
   try {
+    const wally = await import("wallycore");
     const account = await ParentAccount.create(mnemonic);
     const childAccount = await account.deriveAccount(childNo);
-    const ubtx1 = await childAccount.unBlindTxHex(rawTxHex);
-    const ubtx = new UnBlindedTx(ubtx1);
-    const ubTxJson = {
-      txid: ubtx.getIdHex(),
-      vin: ubtx.getVins().map((vin) => {
-        const vinObj = new VIn(vin);
-        return {
-          vout: vinObj.getVoutN(),
-          txid: vinObj.getTxIdHex(),
-        };
-      }),
-      vout: ubtx.getVouts().map((vout) => {
-        const voutObj = new VOut(vout);
-        return {
-          value: voutObj.getValue().toString(),
-          asset: voutObj.getAssetIdHex(),
-          n: voutObj.getN(),
-        };
-      }),
-    };
-    return ubTxJson;
+      const decodedPayload = JSON.parse(transactionPayload);
+      const inputs = [];
+      const values = [];
+
+      for (const transactionObject of decodedPayload) {
+          const ubtx = await childAccount.unBlindTxHex(transactionObject.hex);
+          const vouts = transactionObject.vouts;
+
+          for (const voutId in vouts) {
+              const vout = await ubtx.getVout(parseInt(voutId));
+              const value = await vouts[voutId];
+            
+              if (vout != null && value != null) {
+                inputs.push(vout);
+                values.push(value);
+              } else {
+                  throw new Error(
+                      `Vout with ID: ${voutId} not found or value format invalid (must be a number)`
+                  );
+              }
+          }
+      }
+      const destination = await Destination.create(destinationAddress);
+
+      const inputsPrim = inputs;
+      const valuesPrim = new BigInt64Array(values);
+      const tx = await  childAccount.createBlindTx(inputsPrim, destination, valuesPrim);
+      childAccount.signTransaction(tx, inputsPrim);
+      console.log(tx,'tx core js')
+      const blindedTxHex = wally.tx_to_hex(tx, wally.WALLY_TX_FLAG_USE_WITNESS);
+      promise.resolve(blindedTxHex);
   } catch (error) {
-    console.error("Failed to unblind transaction:", error.message || error);
-    throw error;
+    console.log(error,'error')
+      promise.reject(error.message);
   }
-};
+}
+
 export const unblindTx = async (mnemonic, childNo, rawTxHex) => {
   return new Promise(async (resolve, reject) => {
     try {

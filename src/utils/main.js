@@ -2,6 +2,9 @@ import {
   hex2Utf8,
   addAmount,
   appendAssetMetadataIfNotExists,
+  getUtxosForAmount,
+  sortByBiggestAmount,
+  DIVIDE_FACTOR,
 } from "./utils.js";
 import BigNumber from "bignumber.js";
 import {
@@ -9,13 +12,15 @@ import {
   getTransaction,
   getWalletInfo,
   deriveAccount,
+  sendToAddress,
+  getRawTransaction
 } from "./element.js";
 export const getUserAddress = async (mnemonic) => {
   const res = await deriveAccount(mnemonic);
   return res;
 };
 
-const _extractAssetMetadata = async (assetId) => {
+export const _extractAssetMetadata = async (assetId) => {
   const issuanceTxin = await getAssetIssuanceTxin(assetId);
   const issuanceTx = await getTransaction(issuanceTxin.txid);
   let assetMetadataHex;
@@ -83,3 +88,76 @@ export const getBalances = async () => {
 
   return balancesByAsset;
 };
+const _findEligibleRedemptionAssets=(
+  balancesByAsset,
+  merchantTicker,
+)=>{
+  const assetsEligibleForRedemption = [];
+  for (const assetId in balancesByAsset) {
+    const assetData = balancesByAsset[assetId];
+    if (assetData.assetMetadata?.ticker === merchantTicker) {
+      assetsEligibleForRedemption.push({
+        assetId,
+        amount: assetData.amount,
+        amountPerUtxo: assetData.amountPerUtxo,
+      });
+    }
+  }
+  return assetsEligibleForRedemption;
+}
+const _generateRedemptionTxs=async(
+  chosenUtxos,
+  destinationAddress,
+)=> {
+  const inputsToSpend= [];
+  const utxosByTxid= {};
+  for (const chosenUtxo of chosenUtxos) {
+    if (!(chosenUtxo.txid in utxosByTxid)) {
+      const inputTx = await getRawTransaction(chosenUtxo.txid)
+      utxosByTxid[chosenUtxo.txid] = {hex: inputTx, vouts: {}};
+    }
+    utxosByTxid[chosenUtxo.txid].vouts[chosenUtxo.vout] =
+      chosenUtxo.amount.times(DIVIDE_FACTOR);
+  }
+
+  for (const txid in utxosByTxid) {
+    inputsToSpend.push(utxosByTxid[txid]);
+  }
+  return [
+    await sendToAddress(destinationAddress, inputsToSpend),
+  ];
+}
+export const redeemTokens=async(
+  destinationAddress,
+  merchantTicker,
+  redemptionAmount,
+)=> {
+  const balancesByAsset = await getBalances();
+  const assetsEligibleForRedemption = _findEligibleRedemptionAssets(
+    balancesByAsset,
+    merchantTicker,
+  );
+  let chosenUtxos = [];
+
+  let missingAmount = redemptionAmount;
+
+  for (const eligibleAsset of assetsEligibleForRedemption) {
+    sortByBiggestAmount(eligibleAsset.amountPerUtxo);
+    if (eligibleAsset.amount.isGreaterThanOrEqualTo(missingAmount)) {
+      chosenUtxos = chosenUtxos.concat(
+        getUtxosForAmount(missingAmount, eligibleAsset.amountPerUtxo),
+      );
+      missingAmount = new BigNumber(0);
+      break;
+    }
+    chosenUtxos = chosenUtxos.concat(
+      getUtxosForAmount(eligibleAsset.amount, eligibleAsset.amountPerUtxo),
+    );
+    missingAmount = missingAmount.minus(eligibleAsset.amount);
+  }
+
+  if (missingAmount.isGreaterThan(0)) {
+    throw new Error('Insufficient funds, please purchase more funds.');
+  }
+  return _generateRedemptionTxs(chosenUtxos, destinationAddress);
+}
