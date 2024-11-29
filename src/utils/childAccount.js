@@ -1,4 +1,6 @@
 import ParentAccount from "./parentAccount.js";
+import ByteArrayHelpers from "./byteArrayHelpers.js";
+import BigNumber from "bignumber.js";
 import VIn from "./vin.js";
 import VOut from "./vout.js";
 class ChildAccount {
@@ -203,16 +205,11 @@ async  createBlindTx(inputs, destination, amountsToTransfer) {
   let concatAssetGenerators = new Uint8Array(0);
 
   inputs.forEach((vout) => {
-      concatAbfs = this.concatByteArrays(concatAbfs, vout.abf);
-      concatVbfs = this.concatByteArrays(concatVbfs, vout.vbf);
-      concatAssetIds = this.concatByteArrays(concatAssetIds, vout.assetId);
-      concatAssetGenerators = this.concatByteArrays(concatAssetGenerators, vout.assetGenerator);
+      concatAbfs = ByteArrayHelpers.concatByteArrays(concatAbfs, vout.abf);
+      concatVbfs = ByteArrayHelpers.concatByteArrays(concatVbfs, vout.vbf);
+      concatAssetIds = ByteArrayHelpers.concatByteArrays(concatAssetIds, vout.assetId);
+      concatAssetGenerators = ByteArrayHelpers.concatByteArrays(concatAssetGenerators, vout.assetGenerator);
   });
-console.log(concatAbfs,'concatAbfs')
-console.log(concatVbfs,'concatVbfs')
-console.log(concatAssetIds,'concatAssetIds')
-console.log(concatAssetGenerators,'concatAssetGenerators')
-
   const values = [];
   inputs.forEach((vout, i) => {
     const filteredValues = vout.value.filter(item => typeof item === 'bigint');
@@ -222,41 +219,38 @@ console.log(concatAssetGenerators,'concatAssetGenerators')
   values.forEach((vout, i) => {
       values[i + outputOffset + inputs.length] = amountsToTransfer[i];
       
-      console.log(amountsToTransfer[i],'amountsToTransfer[i]')
+      // console.log(amountsToTransfer[i],'amountsToTransfer[i]')
       const outputChange = vout - amountsToTransfer[i];
       if (outputChange > 0) {
           values[i + outputOffset + inputs.length + 1] = outputChange;
           outputOffset++;
       }
   });
-
   const numOutputs = values.length - inputs.length;
   const abfsOut = ParentAccount.randomBytes(32 * numOutputs);
-  const vbfsOut = ParentAccount.randomBytes(32 * (numOutputs - 1));
-  const abfsAll = this.concatByteArrays(concatAbfs, abfsOut);
-  const vbfsAll = this.concatByteArrays(concatVbfs, vbfsOut);
-
+  let vbfsOut = ParentAccount.randomBytes(32 * (numOutputs - 1));
+  const abfsAll = ByteArrayHelpers.concatByteArrays(concatAbfs, abfsOut);
+  const vbfsAll = ByteArrayHelpers.concatByteArrays(concatVbfs, vbfsOut);
   const finalVbf = wally.asset_final_vbf(values, inputs.length, abfsAll, vbfsAll);
-
-  vbfsOut.set(finalVbf, vbfsOut.length);
-
+  vbfsOut =ByteArrayHelpers.concatByteArrays(vbfsOut,finalVbf)
   const outputTx = wally.tx_init(ParentAccount.TRANSACTION_VERSION_TO_USE, 0, 0, 0);
+console.log(outputTx,'outputTx')
   let changeOffset = 0;
 
   for (let i = 0; i < inputs.length; i++) {
       const vout = inputs[i];
-      const ephemeralPrivkey = generateEphemeralKey();
+      const ephemeralPrivkey = ParentAccount.generateEphemeralKey();
       const ephemeralPubkey = wally.ec_public_key_from_private_key(ephemeralPrivkey);
 
-      const changeEphemeralPrivkey = generateEphemeralKey();
+      const changeEphemeralPrivkey = ParentAccount.generateEphemeralKey();
       const changeEphemeralPubkey = wally.ec_public_key_from_private_key(changeEphemeralPrivkey);
 
-      const abf = abfsOut.slice(i * 32 + changeOffset * 32, i * 32 + changeOffset * 32 + 32);
-      const vbf = vbfsOut.slice(i * 32 + changeOffset * 32, i * 32 + changeOffset * 32 + 32);
+      const abf = abfsOut.slice(i * 32 + (changeOffset * 32), (i * 32) + (changeOffset * 32) + 32);
+      const vbf = vbfsOut.slice(i * 32 + (changeOffset * 32), (i * 32) + (changeOffset * 32) + 32);
 
       const generator = wally.asset_generator_from_bytes(vout.assetId, abf);
       const valueCommitment = wally.asset_value_commitment(amountsToTransfer[i], vbf, generator);
-
+ const min_val=new BigNumber(1)
       const rangeProof = wally.asset_rangeproof(
           amountsToTransfer[i],
           destination.blindingPubkey,
@@ -267,7 +261,7 @@ console.log(concatAssetGenerators,'concatAssetGenerators')
           valueCommitment,
           destination.scriptPubkey,
           generator,
-          1,
+          min_val,
           0,
           36
       );
@@ -276,7 +270,7 @@ console.log(concatAssetGenerators,'concatAssetGenerators')
           vout.assetId,
           abf,
           generator,
-          generateRandomBytes(32),
+          ParentAccount.randomBytes(32),
           concatAssetIds,
           concatAbfs,
           concatAssetGenerators
@@ -292,26 +286,27 @@ console.log(concatAssetGenerators,'concatAssetGenerators')
           rangeProof,
           0
       );
-
-      const change = vout.value - amountsToTransfer[i];
+const filteredValues = vout.value.filter(item => typeof item === 'bigint');
+      const change = filteredValues[0] - amountsToTransfer[i];
       if (change > 0) {
           const abfChange = abfsOut.slice(i * 32 + changeOffset * 32 + 32, i * 32 + changeOffset * 32 + 64);
           const vbfChange = vbfsOut.slice(i * 32 + changeOffset * 32 + 32, i * 32 + changeOffset * 32 + 64);
 
           const changeGenerator = wally.asset_generator_from_bytes(vout.assetId, abfChange);
           const changeValueCommitment = wally.asset_value_commitment(change, vbfChange, changeGenerator);
+console.log(this.publicBlindingKey,'publicBlindingKey')
 
           const changeRangeProof = wally.asset_rangeproof(
               change,
-              publicBlindingKey,
+              this.publicBlindingKey,
               changeEphemeralPrivkey,
               vout.assetId,
               abfChange,
               vbfChange,
               changeValueCommitment,
-              scriptPubKey,
+              this.scriptPubKey,
               changeGenerator,
-              1,
+              min_val,
               0,
               36
           );
@@ -320,7 +315,7 @@ console.log(concatAssetGenerators,'concatAssetGenerators')
               vout.assetId,
               abfChange,
               changeGenerator,
-              generateRandomBytes(32),
+              ParentAccount.randomBytes(32),
               concatAssetIds,
               concatAbfs,
               concatAssetGenerators
@@ -328,7 +323,7 @@ console.log(concatAssetGenerators,'concatAssetGenerators')
 
           wally.tx_add_elements_raw_output(
               outputTx,
-              scriptPubKey,
+              this.scriptPubKey,
               changeGenerator,
               changeValueCommitment,
               changeEphemeralPubkey,

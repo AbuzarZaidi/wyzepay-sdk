@@ -14,6 +14,7 @@ export const createSignedBlindedTx = async (
     destinationAddress,
     JSON.stringify(txPayload),
   );
+  console.log(newRawTx,'newRawTx')
   return newRawTx;
 };
 async function createBlindTx(mnemonic, childNo, destinationAddress, transactionPayload, promise) {
@@ -53,11 +54,10 @@ async function createBlindTx(mnemonic, childNo, destinationAddress, transactionP
 
       
       const tx = await  childAccount.createBlindTx(inputsPrim, destination, valuesPrim);
-      console.log(tx,'tx')  
-      // childAccount.signTransaction(tx, inputsPrim);
-      // console.log(tx,'tx core js')
-      // const blindedTxHex = wally.tx_to_hex(tx, wally.WALLY_TX_FLAG_USE_WITNESS);
-      // console.log(blindedTxHex,'blindedTxHex')
+      childAccount.signTransaction(tx, inputsPrim);
+      console.log(tx,'tx core js')
+      const blindedTxHex = wally.tx_to_hex(tx, wally.WALLY_TX_FLAG_USE_WITNESS);
+      console.log(blindedTxHex,'blindedTxHex')
       // promise.resolve(blindedTxHex);
   } catch (error) {
     console.log(error,'error')
