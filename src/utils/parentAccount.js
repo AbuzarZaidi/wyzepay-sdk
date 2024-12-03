@@ -1,14 +1,15 @@
 import ChildAccount from "./childAccount.js";
 import { mnemonicToSeed } from "bip39";
+import BigNumber from "bignumber.js";
 import crypto from "crypto";
 
 class ParentAccount {
+  static TRANSACTION_VERSION_TO_USE = 2;
   constructor(mnemonic, masterKey = null, seed = null) {
     this.mnemonic = mnemonic;
     this.masterKey = masterKey;
     this.seed = seed;
   }
-
   static async create(mnemonic) {
     const wally = await import("wallycore");
     const seed = await mnemonicToSeed(mnemonic);

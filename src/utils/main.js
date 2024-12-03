@@ -133,11 +133,11 @@ export const redeemTokens=async(
   redemptionAmount,
 )=> {
   const balancesByAsset = await getBalances();
-  console.log(balancesByAsset,'balancesByAsset')
   const assetsEligibleForRedemption = _findEligibleRedemptionAssets(
     balancesByAsset,
     merchantTicker,
   );
+
   let chosenUtxos = [];
 
   let missingAmount = redemptionAmount;

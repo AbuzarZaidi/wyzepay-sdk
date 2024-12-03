@@ -19,6 +19,7 @@ export const createSignedBlindedTx = async (
 };
 async function createBlindTx(mnemonic, childNo, destinationAddress, transactionPayload, promise) {
   try {
+
     const wally = await import("wallycore");
     const account = await ParentAccount.create(mnemonic);
     const childAccount = await account.deriveAccount(childNo);
@@ -28,7 +29,6 @@ async function createBlindTx(mnemonic, childNo, destinationAddress, transactionP
 
       for (const transactionObject of decodedPayload) {
           const ubtx = await childAccount.unBlindTxHex(transactionObject.hex);
-          // console.log(ubtx,'ubtx')
           const vouts = transactionObject.vouts;
 // console.log(vouts,'vouts')
           for (const voutId in vouts) {
@@ -45,23 +45,24 @@ async function createBlindTx(mnemonic, childNo, destinationAddress, transactionP
               }
           }
       }
-
-
       const destination = await Destination.create(destinationAddress);
 
       const inputsPrim = inputs;
       const valuesPrim = new BigInt64Array(values);
-
+console.log(inputsPrim,'inputsPrim');
+console.log(destination,'destination')
+console.log(valuesPrim,'valuesPrim')
       
       const tx = await  childAccount.createBlindTx(inputsPrim, destination, valuesPrim);
-      childAccount.signTransaction(tx, inputsPrim);
-      console.log(tx,'tx core js')
+     await childAccount.signTransaction(tx, inputsPrim);
+      console.log(tx,'tx')
+      console.log(wally.WALLY_TX_FLAG_USE_WITNESS,'Wally.WALLY_TX_FLAG_USE_WITNESS')
       const blindedTxHex = wally.tx_to_hex(tx, wally.WALLY_TX_FLAG_USE_WITNESS);
       console.log(blindedTxHex,'blindedTxHex')
-      // promise.resolve(blindedTxHex);
+      promise.resolve(blindedTxHex);
   } catch (error) {
     console.log(error,'error')
-      promise.reject(error.message);
+      promise.reject(error);
   }
 }
 

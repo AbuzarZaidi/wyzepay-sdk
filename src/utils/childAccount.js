@@ -19,6 +19,8 @@ class ChildAccount {
     privateBlindingKey,
     privateBlindingKeyHex,
     publicBlindingKeyHex,
+    pubkey,
+    privkey,
     privkeyHex,
     pubkeyHex
   ) {
@@ -36,6 +38,8 @@ class ChildAccount {
     this.privateBlindingKey = privateBlindingKey;
     this.privateBlindingKeyHex = privateBlindingKeyHex;
     this.publicBlindingKeyHex = publicBlindingKeyHex;
+    this.pubkey=pubkey;
+    this.privkey = privkey;
     this.privkeyHex = privkeyHex;
     this.pubkeyHex = pubkeyHex;
   }
@@ -91,69 +95,71 @@ class ChildAccount {
       privateBlindingKey,
       privateBlindingKeyHex,
       publicBlindingKeyHex,
+      pubkey,
+      privkey,
       privkeyHex,
       pubkeyHex
     );
   }
   async signTransaction(tx, inputs) {
+    console.log(tx,'signTransaction')
     const wally = await import("wallycore");
     let voutN = 0;
-
-    // Add raw inputs to the transaction
+   console.log(inputs,'inputs')
     for (const vout of inputs) {
-        wally.tx_add_elements_raw_input(
-            tx,
-            vout.getTxId(),
-            vout.getN(),
-            0xffffffff, // Sequence
-            null,       // Script witness stack (null)
-            null,       // Asset (null)
-            null,       // Value (null)
-            null,       // Value blinding (null)
-            null,       // Asset blinding (null)
-            null,       // Extra (null)
-            null,       // Issuance amount (null)
-            null,       // Inflation keys (null)
-            null,       // Issuance blinding (null)
-            0           // Flags
-        );
-    }
 
+     const txid=await vout.getTxId()
+     const getn=await vout.getN()
+     wally.tx_add_elements_raw_input(
+      tx,                             // valid transaction object
+      txid,                 // 32-byte Buffer or Uint8Array
+      getn,                    // valid UTXO index
+      0xFFFFFFFE,                     // valid sequence number
+      new Uint8Array([]),             // empty unlocking script
+      null,             // empty witness stack
+      new Uint8Array([]),             // empty nonce
+      new Uint8Array([]),             // empty entropy
+      new Uint8Array([]),             // empty issuance_amount
+      new Uint8Array([]),             // empty inflation_keys
+      new Uint8Array([]), 
+      new Uint8Array([]),                         // empty issuance_amount_rangeproof
+      null,             // empty inflation_keys_rangeproof
+      0                                // flags (0 is valid)
+  );
+  
+    }
+    // new Uint8Array([])
     // Sign each input
     for (const vout of inputs) {
         const sighash = new Uint8Array(wally.SHA256_LEN);
-
-        // Get the BTC signature hash
         wally.tx_get_btc_signature_hash(
-            tx,
-            voutN,
-            vout.getScriptPubKey(),
-            0,
-            Wally.WALLY_SIGHASH_ALL,
-            0,
-            sighash
-        );
-
-        // Generate the signature from the private key and hash
+          tx,                      // tx: Ref_wally_tx
+          voutN,                   // index: number
+          vout.getScriptPubKey(),  // script: Buffer | Uint8Array
+          0n,                      // satoshi: bigint
+          wally.WALLY_SIGHASH_ALL, // sighash: number
+          // sighash,
+          0                        // flags: number
+      );
+      
         const signature = wally.ec_sig_from_bytes(
-            privkey, // Assumes `privkey` is defined and accessible
+            this.privkey,
             sighash,
             wally.EC_FLAG_ECDSA
         );
 
-        // Create the scriptsig
+
         let scriptsig = new Uint8Array(wally.WALLY_SCRIPTSIG_P2PKH_MAX_LEN);
+
+
+
         wally.scriptsig_p2pkh_from_sig(
-            pubkey, // Assumes `pubkey` is defined and accessible
+            this.pubkey,
             signature,
-            wally.WALLY_SIGHASH_ALL,
-            scriptsig
+            sighash
         );
-
-        // Remove trailing zeros from the scriptsig
-        scriptsig = scriptsig.slice(0, scriptsig.findIndex((byte) => byte === 0));
-
-        // Set the input script for the transaction
+        scriptsig = ByteArrayHelpers.trimTrailingZeros(scriptsig);
+        console.log(scriptsig,'scriptsig')
         wally.tx_set_input_script(tx, voutN, scriptsig);
 
         voutN++;
@@ -234,7 +240,11 @@ async  createBlindTx(inputs, destination, amountsToTransfer) {
   const finalVbf = wally.asset_final_vbf(values, inputs.length, abfsAll, vbfsAll);
   vbfsOut =ByteArrayHelpers.concatByteArrays(vbfsOut,finalVbf)
   const outputTx = wally.tx_init(ParentAccount.TRANSACTION_VERSION_TO_USE, 0, 0, 0);
-console.log(outputTx,'outputTx')
+  console.log(outputTx,'outputTx')
+  // const num_inputs = wally.tx_get_num_inputs(outputTx); // '0' means no additional flags
+  // console.log("tx_get_num_inputs:", num_inputs);
+  // const num_outputs = wally.tx_get_num_outputs(outputTx); // '0' means no additional flags
+  // console.log("tx_get_num_outputs:", num_outputs);
   let changeOffset = 0;
 
   for (let i = 0; i < inputs.length; i++) {
@@ -247,10 +257,11 @@ console.log(outputTx,'outputTx')
 
       const abf = abfsOut.slice(i * 32 + (changeOffset * 32), (i * 32) + (changeOffset * 32) + 32);
       const vbf = vbfsOut.slice(i * 32 + (changeOffset * 32), (i * 32) + (changeOffset * 32) + 32);
-
       const generator = wally.asset_generator_from_bytes(vout.assetId, abf);
       const valueCommitment = wally.asset_value_commitment(amountsToTransfer[i], vbf, generator);
+
  const min_val=new BigNumber(1)
+
       const rangeProof = wally.asset_rangeproof(
           amountsToTransfer[i],
           destination.blindingPubkey,
@@ -287,14 +298,15 @@ console.log(outputTx,'outputTx')
           0
       );
 const filteredValues = vout.value.filter(item => typeof item === 'bigint');
-      const change = filteredValues[0] - amountsToTransfer[i];
+
+      const change = filteredValues[i] - amountsToTransfer[i];
+      console.log(change,'change')
       if (change > 0) {
           const abfChange = abfsOut.slice(i * 32 + changeOffset * 32 + 32, i * 32 + changeOffset * 32 + 64);
           const vbfChange = vbfsOut.slice(i * 32 + changeOffset * 32 + 32, i * 32 + changeOffset * 32 + 64);
 
           const changeGenerator = wally.asset_generator_from_bytes(vout.assetId, abfChange);
           const changeValueCommitment = wally.asset_value_commitment(change, vbfChange, changeGenerator);
-console.log(this.publicBlindingKey,'publicBlindingKey')
 
           const changeRangeProof = wally.asset_rangeproof(
               change,
@@ -335,6 +347,13 @@ console.log(this.publicBlindingKey,'publicBlindingKey')
           changeOffset++;
       }
   }
+  const num_inputs1 = wally.tx_get_num_inputs(outputTx); // '0' means no additional flags
+  console.log("tx_get_num_inputs1:", num_inputs1);
+  const num_outputs1 = wally.tx_get_num_outputs(outputTx); // '0' means no additional flags
+  console.log("tx_get_num_outputs1:", num_outputs1);
+  const tx_is_coinbase= wally.tx_is_coinbase(outputTx)
+
+  console.log(tx_is_coinbase,'tx_is_coinbase')
   return outputTx;
 }
 
