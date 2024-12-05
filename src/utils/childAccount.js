@@ -103,11 +103,7 @@ class ChildAccount {
   }
   async signTransaction(tx, inputs,vins) {
     const wally = await import("wallycore");
-
-    // console.log(vins.txId,'signTransaction')
- 
     let voutN = 0;
-  //  console.log(inputs,'inputs')
     for (const vout of inputs) {
       
       // const script = Buffer.from(destination.scriptPubKey, 'hex');
@@ -163,8 +159,6 @@ wally.tx_add_elements_raw_input(
 );
 
     }
-    // new Uint8Array([])
-    // Sign each input
     const min_val=new BigNumber(0)
     for (const vout of inputs) {
         const sighash = new Uint8Array(wally.SHA256_LEN);
@@ -186,17 +180,11 @@ wally.tx_add_elements_raw_input(
 
 
         let scriptsig = new Uint8Array(wally.WALLY_SCRIPTSIG_P2PKH_MAX_LEN);
-
-console.log(wally.WALLY_SCRIPTSIG_P2PKH_MAX_LEN,'wally.WALLY_SCRIPTSIG_P2PKH_MAX_LEN')
-
         wally.scriptsig_p2pkh_from_sig(
             this.pubkey,
             signature,
             sighash
         );
-        // scriptsig = ByteArrayHelpers.trimTrailingZeros(scriptsig);
-        console.log(voutN,'voutN')
-        console.log(scriptsig,'scriptsig')
         wally.tx_set_input_script(tx, 0, scriptsig);
 
         voutN++;
@@ -274,11 +262,8 @@ async  createBlindTx(inputs, destination, amountsToTransfer) {
   const vbfsAll = ByteArrayHelpers.concatByteArrays(concatVbfs, vbfsOut);
   const finalVbf = wally.asset_final_vbf(values, inputs.length, abfsAll, vbfsAll);
   vbfsOut =ByteArrayHelpers.concatByteArrays(vbfsOut,finalVbf)
-  // const outputTx = wally.tx_init(ParentAccount.TRANSACTION_VERSION_TO_USE, 0, 0, 0);
-  const outputTx=wally.tx_init(2, 0, 0,0);
-  console.log(outputTx,'outputTx')
+  const outputTx = wally.tx_init(ParentAccount.TRANSACTION_VERSION_TO_USE, 0, 0, 0);
   let changeOffset = 0;
-  
   for (let i = 0; i < inputs.length; i++) {
       const vout = inputs[i];
       const ephemeralPrivkey = ParentAccount.generateEphemeralKey();
@@ -327,10 +312,9 @@ async  createBlindTx(inputs, destination, amountsToTransfer) {
           rangeProof,
           0
       );
-const filteredValues = vout.value.filter(item => typeof item === 'bigint');
+      const filteredValues = vout.value.filter(item => typeof item === 'bigint');
 
       const change = filteredValues[i] - amountsToTransfer[i];
-      // console.log(change,'change')
       if (change > 0) {
           const abfChange = abfsOut.slice(i * 32 + changeOffset * 32 + 32, i * 32 + changeOffset * 32 + 64);
           const vbfChange = vbfsOut.slice(i * 32 + changeOffset * 32 + 32, i * 32 + changeOffset * 32 + 64);

@@ -64,6 +64,6 @@ const _getBalancesByMerchant = async () => {
 //   redemptionAmount
 (async () => {
   let redemptionAmount=new BigNumber(22)
-  redeemTokens('AzpueHHe3K5dug5Q5CUu5tCk1PAGM83v4fmLSQD5DKTd4WuUCBXcSQSRYjcLaTjPXmCPukxVfBfjdsmL','DSLB',redemptionAmount)
-console.log(redemptionAmount,'redemptionAmount')
+ const transaction= await redeemTokens('AzpueHHe3K5dug5Q5CUu5tCk1PAGM83v4fmLSQD5DKTd4WuUCBXcSQSRYjcLaTjPXmCPukxVfBfjdsmL','DSLB',redemptionAmount)
+console.log(transaction,'transaction')
 })()
