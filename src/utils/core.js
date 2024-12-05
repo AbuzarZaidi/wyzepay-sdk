@@ -26,10 +26,13 @@ async function createBlindTx(mnemonic, childNo, destinationAddress, transactionP
       const decodedPayload = JSON.parse(transactionPayload);
       const inputs = [];
       const values = [];
-
+      let vins=[]
       for (const transactionObject of decodedPayload) {
           const ubtx = await childAccount.unBlindTxHex(transactionObject.hex);
+          // console.log(ubtx,'ubtx')
+          vins=ubtx.vins[0]
           const vouts = transactionObject.vouts;
+          console.log(ubtx,'ubtx')
 // console.log(vouts,'vouts')
           for (const voutId in vouts) {
               const vout = await ubtx.getVout(parseInt(voutId));
@@ -48,17 +51,12 @@ async function createBlindTx(mnemonic, childNo, destinationAddress, transactionP
       const destination = await Destination.create(destinationAddress);
 
       const inputsPrim = inputs;
-      const valuesPrim = new BigInt64Array(values);
-console.log(inputsPrim,'inputsPrim');
-console.log(destination,'destination')
-console.log(valuesPrim,'valuesPrim')
-      
+      const valuesPrim = new BigInt64Array(values);      
       const tx = await  childAccount.createBlindTx(inputsPrim, destination, valuesPrim);
-     await childAccount.signTransaction(tx, inputsPrim);
       console.log(tx,'tx')
-      console.log(wally.WALLY_TX_FLAG_USE_WITNESS,'Wally.WALLY_TX_FLAG_USE_WITNESS')
+     await childAccount.signTransaction(tx, inputsPrim,vins);
       const blindedTxHex = wally.tx_to_hex(tx, wally.WALLY_TX_FLAG_USE_WITNESS);
-      console.log(blindedTxHex,'blindedTxHex')
+    console.log(wally.WALLY_TX_FLAG_USE_WITNESS,'WALLY_TX_FLAG_USE_WITNESS')
       promise.resolve(blindedTxHex);
   } catch (error) {
     console.log(error,'error')

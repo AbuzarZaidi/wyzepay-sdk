@@ -101,44 +101,80 @@ class ChildAccount {
       pubkeyHex
     );
   }
-  async signTransaction(tx, inputs) {
-    console.log(tx,'signTransaction')
+  async signTransaction(tx, inputs,vins) {
     const wally = await import("wallycore");
-    let voutN = 0;
-   console.log(inputs,'inputs')
-    for (const vout of inputs) {
 
-     const txid=await vout.getTxId()
-     const getn=await vout.getN()
-     wally.tx_add_elements_raw_input(
-      tx,                             // valid transaction object
-      txid,                 // 32-byte Buffer or Uint8Array
-      getn,                    // valid UTXO index
-      0xFFFFFFFE,                     // valid sequence number
-      new Uint8Array([]),             // empty unlocking script
-      null,             // empty witness stack
-      new Uint8Array([]),             // empty nonce
-      new Uint8Array([]),             // empty entropy
-      new Uint8Array([]),             // empty issuance_amount
-      new Uint8Array([]),             // empty inflation_keys
-      new Uint8Array([]), 
-      new Uint8Array([]),                         // empty issuance_amount_rangeproof
-      null,             // empty inflation_keys_rangeproof
-      0                                // flags (0 is valid)
-  );
-  
+    // console.log(vins.txId,'signTransaction')
+ 
+    let voutN = 0;
+  //  console.log(inputs,'inputs')
+    for (const vout of inputs) {
+      
+      // const script = Buffer.from(destination.scriptPubKey, 'hex');
+  //    const txhash=await vout.getTxId()
+  //    const getn=await vout.getN()
+  //    console.log(txhash,'txhash')
+  //    console.log(getn,'getn')
+  //    wally.tx_add_elements_raw_input(
+  //     outputTx,                  
+  //     txhash,                
+  //     getn,                   
+  //     0xffffffff,                   
+  //     new Uint8Array([0x01]),      
+  //     null,         
+  //     new Uint8Array([0x01]),        
+  //     new Uint8Array([0x01]),         
+  //     new Uint8Array([0x01]),          
+  //     new Uint8Array([0x01]),       
+  //     new Uint8Array([0x01]), 
+  //     new Uint8Array([0x01]),      
+  //     null,           
+  //     0 
+  // );
+
+const dummyTxHash = new Uint8Array(32).fill(0x01);
+const dummyScript = new Uint8Array([0x00]);
+const dummyNonce = new Uint8Array(32).fill(0x02);
+const dummyEntropy = new Uint8Array(32).fill(0x03);
+const dummyIssuanceAmount = new Uint8Array(32).fill(0x04);
+const dummyInflationKeys = new Uint8Array(32).fill(0x05);
+const dummyIssuanceRangeProof = new Uint8Array(32).fill(0x06);
+const dummyInflationRangeProof = new Uint8Array(32).fill(0x07);
+const dummyWitnessStack = null;
+const dummyPeginWitness = null;
+const dummyFlags = 0;
+const dummySequence = 0xffffffff;
+const dummyUtxoIndex = 1;
+wally.tx_add_elements_raw_input(
+    tx,
+    dummyTxHash,
+    dummyUtxoIndex,
+    dummySequence,
+    dummyScript,
+    dummyWitnessStack,
+    dummyNonce,
+    dummyEntropy,
+    dummyIssuanceAmount,
+    dummyInflationKeys,
+    dummyIssuanceRangeProof,
+    dummyInflationRangeProof,
+    dummyPeginWitness,
+    dummyFlags
+);
+
     }
     // new Uint8Array([])
     // Sign each input
+    const min_val=new BigNumber(0)
     for (const vout of inputs) {
         const sighash = new Uint8Array(wally.SHA256_LEN);
         wally.tx_get_btc_signature_hash(
           tx,                      // tx: Ref_wally_tx
-          voutN,                   // index: number
+          1,                   // index: number
           vout.getScriptPubKey(),  // script: Buffer | Uint8Array
-          0n,                      // satoshi: bigint
-          wally.WALLY_SIGHASH_ALL, // sighash: number
-          // sighash,
+          min_val,                      // satoshi: bigint
+          // wally.WALLY_SIGHASH_ALL, // sighash: number
+          0,
           0                        // flags: number
       );
       
@@ -151,16 +187,17 @@ class ChildAccount {
 
         let scriptsig = new Uint8Array(wally.WALLY_SCRIPTSIG_P2PKH_MAX_LEN);
 
-
+console.log(wally.WALLY_SCRIPTSIG_P2PKH_MAX_LEN,'wally.WALLY_SCRIPTSIG_P2PKH_MAX_LEN')
 
         wally.scriptsig_p2pkh_from_sig(
             this.pubkey,
             signature,
             sighash
         );
-        scriptsig = ByteArrayHelpers.trimTrailingZeros(scriptsig);
+        // scriptsig = ByteArrayHelpers.trimTrailingZeros(scriptsig);
+        console.log(voutN,'voutN')
         console.log(scriptsig,'scriptsig')
-        wally.tx_set_input_script(tx, voutN, scriptsig);
+        wally.tx_set_input_script(tx, 0, scriptsig);
 
         voutN++;
     }
@@ -224,8 +261,6 @@ async  createBlindTx(inputs, destination, amountsToTransfer) {
   let outputOffset = 0;
   values.forEach((vout, i) => {
       values[i + outputOffset + inputs.length] = amountsToTransfer[i];
-      
-      // console.log(amountsToTransfer[i],'amountsToTransfer[i]')
       const outputChange = vout - amountsToTransfer[i];
       if (outputChange > 0) {
           values[i + outputOffset + inputs.length + 1] = outputChange;
@@ -239,14 +274,11 @@ async  createBlindTx(inputs, destination, amountsToTransfer) {
   const vbfsAll = ByteArrayHelpers.concatByteArrays(concatVbfs, vbfsOut);
   const finalVbf = wally.asset_final_vbf(values, inputs.length, abfsAll, vbfsAll);
   vbfsOut =ByteArrayHelpers.concatByteArrays(vbfsOut,finalVbf)
-  const outputTx = wally.tx_init(ParentAccount.TRANSACTION_VERSION_TO_USE, 0, 0, 0);
+  // const outputTx = wally.tx_init(ParentAccount.TRANSACTION_VERSION_TO_USE, 0, 0, 0);
+  const outputTx=wally.tx_init(2, 0, 0,0);
   console.log(outputTx,'outputTx')
-  // const num_inputs = wally.tx_get_num_inputs(outputTx); // '0' means no additional flags
-  // console.log("tx_get_num_inputs:", num_inputs);
-  // const num_outputs = wally.tx_get_num_outputs(outputTx); // '0' means no additional flags
-  // console.log("tx_get_num_outputs:", num_outputs);
   let changeOffset = 0;
-
+  
   for (let i = 0; i < inputs.length; i++) {
       const vout = inputs[i];
       const ephemeralPrivkey = ParentAccount.generateEphemeralKey();
@@ -260,8 +292,7 @@ async  createBlindTx(inputs, destination, amountsToTransfer) {
       const generator = wally.asset_generator_from_bytes(vout.assetId, abf);
       const valueCommitment = wally.asset_value_commitment(amountsToTransfer[i], vbf, generator);
 
- const min_val=new BigNumber(1)
-
+      const min_val=new BigNumber(1)
       const rangeProof = wally.asset_rangeproof(
           amountsToTransfer[i],
           destination.blindingPubkey,
@@ -286,7 +317,6 @@ async  createBlindTx(inputs, destination, amountsToTransfer) {
           concatAbfs,
           concatAssetGenerators
       );
-
       wally.tx_add_elements_raw_output(
           outputTx,
           destination.scriptPubkey,
@@ -300,7 +330,7 @@ async  createBlindTx(inputs, destination, amountsToTransfer) {
 const filteredValues = vout.value.filter(item => typeof item === 'bigint');
 
       const change = filteredValues[i] - amountsToTransfer[i];
-      console.log(change,'change')
+      // console.log(change,'change')
       if (change > 0) {
           const abfChange = abfsOut.slice(i * 32 + changeOffset * 32 + 32, i * 32 + changeOffset * 32 + 64);
           const vbfChange = vbfsOut.slice(i * 32 + changeOffset * 32 + 32, i * 32 + changeOffset * 32 + 64);
@@ -347,13 +377,7 @@ const filteredValues = vout.value.filter(item => typeof item === 'bigint');
           changeOffset++;
       }
   }
-  const num_inputs1 = wally.tx_get_num_inputs(outputTx); // '0' means no additional flags
-  console.log("tx_get_num_inputs1:", num_inputs1);
-  const num_outputs1 = wally.tx_get_num_outputs(outputTx); // '0' means no additional flags
-  console.log("tx_get_num_outputs1:", num_outputs1);
-  const tx_is_coinbase= wally.tx_is_coinbase(outputTx)
-
-  console.log(tx_is_coinbase,'tx_is_coinbase')
+  
   return outputTx;
 }
 
