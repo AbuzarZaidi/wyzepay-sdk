@@ -30,7 +30,7 @@ async function createBlindTx(mnemonic, childNo, destinationAddress, transactionP
           const ubtx = await childAccount.unBlindTxHex(transactionObject.hex);
           vins=ubtx.vins[0]
           const vouts = transactionObject.vouts;
-          console.log(ubtx,'ubtx')
+          // console.log(ubtx,'ubtx')
           for (const voutId in vouts) {
               const vout = await ubtx.getVout(parseInt(voutId));
               const value = await vouts[voutId];

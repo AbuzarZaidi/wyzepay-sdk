@@ -105,57 +105,25 @@ class ChildAccount {
     const wally = await import("wallycore");
     let voutN = 0;
     for (const vout of inputs) {
-      
-      // const script = Buffer.from(destination.scriptPubKey, 'hex');
-  //    const txhash=await vout.getTxId()
-  //    const getn=await vout.getN()
-  //    console.log(txhash,'txhash')
-  //    console.log(getn,'getn')
-  //    wally.tx_add_elements_raw_input(
-  //     outputTx,                  
-  //     txhash,                
-  //     getn,                   
-  //     0xffffffff,                   
-  //     new Uint8Array([0x01]),      
-  //     null,         
-  //     new Uint8Array([0x01]),        
-  //     new Uint8Array([0x01]),         
-  //     new Uint8Array([0x01]),          
-  //     new Uint8Array([0x01]),       
-  //     new Uint8Array([0x01]), 
-  //     new Uint8Array([0x01]),      
-  //     null,           
-  //     0 
-  // );
-
-const dummyTxHash = new Uint8Array(32).fill(0x01);
-const dummyScript = new Uint8Array([0x00]);
+      const txhash=await vout.getTxId()
+      const getn=await vout.getN()   
 const dummyNonce = new Uint8Array(32).fill(0x02);
 const dummyEntropy = new Uint8Array(32).fill(0x03);
-const dummyIssuanceAmount = new Uint8Array(32).fill(0x04);
-const dummyInflationKeys = new Uint8Array(32).fill(0x05);
-const dummyIssuanceRangeProof = new Uint8Array(32).fill(0x06);
-const dummyInflationRangeProof = new Uint8Array(32).fill(0x07);
-const dummyWitnessStack = null;
-const dummyPeginWitness = null;
-const dummyFlags = 0;
-const dummySequence = 0xffffffff;
-const dummyUtxoIndex = 1;
 wally.tx_add_elements_raw_input(
     tx,
-    dummyTxHash,
-    dummyUtxoIndex,
-    dummySequence,
-    dummyScript,
-    dummyWitnessStack,
+    txhash,
+    getn,
+    0xffffffff,
+    new Uint8Array([0]),
+    null,
     dummyNonce,
     dummyEntropy,
-    dummyIssuanceAmount,
-    dummyInflationKeys,
-    dummyIssuanceRangeProof,
-    dummyInflationRangeProof,
-    dummyPeginWitness,
-    dummyFlags
+    new Uint8Array([0]),
+    new Uint8Array([0]),
+    new Uint8Array([0]),
+    new Uint8Array([0]),
+    null,
+    0
 );
 
     }
@@ -163,13 +131,12 @@ wally.tx_add_elements_raw_input(
     for (const vout of inputs) {
         const sighash = new Uint8Array(wally.SHA256_LEN);
         wally.tx_get_btc_signature_hash(
-          tx,                      // tx: Ref_wally_tx
-          1,                   // index: number
-          vout.getScriptPubKey(),  // script: Buffer | Uint8Array
-          min_val,                      // satoshi: bigint
-          // wally.WALLY_SIGHASH_ALL, // sighash: number
-          0,
-          0                        // flags: number
+          tx,
+          voutN,
+          vout.getScriptPubKey(),
+          min_val,
+          sighash,
+          0
       );
       
         const signature = wally.ec_sig_from_bytes(

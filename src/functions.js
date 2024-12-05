@@ -63,7 +63,26 @@ const _getBalancesByMerchant = async () => {
 //   merchantTicker,  
 //   redemptionAmount
 (async () => {
+try {
   let redemptionAmount=new BigNumber(22)
- const transaction= await redeemTokens('AzpueHHe3K5dug5Q5CUu5tCk1PAGM83v4fmLSQD5DKTd4WuUCBXcSQSRYjcLaTjPXmCPukxVfBfjdsmL','DSLB',redemptionAmount)
-console.log(transaction,'transaction')
+  const transaction= await redeemTokens('AzpueHHe3K5dug5Q5CUu5tCk1PAGM83v4fmLSQD5DKTd4WuUCBXcSQSRYjcLaTjPXmCPukxVfBfjdsmL','DSLB',redemptionAmount)
+  const res = await axios.post(
+    "https://qa2.abwp.io/api/v2/consumer/transfer",
+    {
+      orderId: "8647f717-246c-485f-a94a-3422ff098557",
+      rawTxs: transaction,
+      // confidentialAddress: "CTEwF9Kxr2e3gz3mTTHGkhzke88CaERAheNuDg4616kkWXmJVpPQyTEtqk2R9oTEPNF9mK2QkaRom6hU"
+    },
+    {
+      headers: {
+        Authorization: "Api-Key 584dd6ac-d044-4a87-9358-fee65225b410"
+      }
+    }
+  );
+  
+ // console.log(transaction,'transaction')
+ console.log(res,'res')
+} catch (error) {
+  console.log(error)
+}
 })()
