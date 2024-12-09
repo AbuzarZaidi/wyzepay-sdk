@@ -38,7 +38,7 @@ class ChildAccount {
     this.privateBlindingKey = privateBlindingKey;
     this.privateBlindingKeyHex = privateBlindingKeyHex;
     this.publicBlindingKeyHex = publicBlindingKeyHex;
-    this.pubkey=pubkey;
+    this.pubkey = pubkey;
     this.privkey = privkey;
     this.privkeyHex = privkeyHex;
     this.pubkeyHex = pubkeyHex;
@@ -101,137 +101,137 @@ class ChildAccount {
       pubkeyHex
     );
   }
-  async signTransaction(tx, inputs,vins) {
+  async signTransaction(tx, inputs, vins) {
     const wally = await import("wallycore");
     let voutN = 0;
     for (const vout of inputs) {
-      const txhash=await vout.getTxId()
-      const getn=await vout.getN()   
-const dummyNonce = new Uint8Array(32).fill(0x02);
-const dummyEntropy = new Uint8Array(32).fill(0x03);
-wally.tx_add_elements_raw_input(
-    tx,
-    txhash,
-    getn,
-    0xffffffff,
-    new Uint8Array([0]),
-    null,
-    dummyNonce,
-    dummyEntropy,
-    new Uint8Array([0]),
-    new Uint8Array([0]),
-    new Uint8Array([0]),
-    new Uint8Array([0]),
-    null,
-    0
-);
-
-    }
-    const min_val=new BigNumber(0)
-    for (const vout of inputs) {
-        const sighash = new Uint8Array(wally.SHA256_LEN);
-        wally.tx_get_btc_signature_hash(
-          tx,
-          voutN,
-          vout.getScriptPubKey(),
-          min_val,
-          sighash,
-          0
+      const txhash = await vout.getTxId()
+      const getn = await vout.getN()
+      const dummyNonce = new Uint8Array(32).fill(0x02);
+      const dummyEntropy = new Uint8Array(32).fill(0x03);
+      wally.tx_add_elements_raw_input(
+        tx,
+        txhash,
+        getn,
+        0xffffffff,
+        new Uint8Array([0]),
+        null,
+        dummyNonce,
+        dummyEntropy,
+        new Uint8Array([0]),
+        new Uint8Array([0]),
+        new Uint8Array([0]),
+        new Uint8Array([0]),
+        null,
+        0
       );
-      
-        const signature = wally.ec_sig_from_bytes(
-            this.privkey,
-            sighash,
-            wally.EC_FLAG_ECDSA
-        );
 
-
-        let scriptsig = new Uint8Array(wally.WALLY_SCRIPTSIG_P2PKH_MAX_LEN);
-        wally.scriptsig_p2pkh_from_sig(
-            this.pubkey,
-            signature,
-            sighash
-        );
-        wally.tx_set_input_script(tx, 0, scriptsig);
-
-        voutN++;
     }
-}
-calculateChange(vouts, amounts) {
-  if (vouts.length !== amounts.length) {
-      throw new Error("You must specify an amount to transfer for each vout, if you wish to not transfer a vout use 0");
-  }
+    const min_val = new BigNumber(0)
+    for (const vout of inputs) {
+      const sighash = new Uint8Array(wally.SHA256_LEN);
+      wally.tx_get_btc_signature_hash(
+        tx,
+        voutN,
+        vout.getScriptPubKey(),
+        min_val,
+        sighash,
+        0
+      );
 
-  let insertIndex = 0;
-  const change = new Array(vouts.length);
-  
-  for (let i = 0; i < vouts.length; i++) {
+      const signature = wally.ec_sig_from_bytes(
+        this.privkey,
+        sighash,
+        wally.EC_FLAG_ECDSA
+      );
+
+
+      let scriptsig = new Uint8Array(wally.WALLY_SCRIPTSIG_P2PKH_MAX_LEN);
+      wally.scriptsig_p2pkh_from_sig(
+        this.pubkey,
+        signature,
+        sighash
+      );
+      wally.tx_set_input_script(tx, 0, scriptsig);
+
+      voutN++;
+    }
+  }
+  calculateChange(vouts, amounts) {
+    if (vouts.length !== amounts.length) {
+      throw new Error("You must specify an amount to transfer for each vout, if you wish to not transfer a vout use 0");
+    }
+
+    let insertIndex = 0;
+    const change = new Array(vouts.length);
+
+    for (let i = 0; i < vouts.length; i++) {
       const outputChange = vouts[i].value - amounts[i];
       if (outputChange < 0) {
-          throw new Error(`Amount to transfer greater than vout value for vout ${vouts[i].n}`);
+        throw new Error(`Amount to transfer greater than vout value for vout ${vouts[i].n}`);
       } else if (outputChange > 0) {
-          // Only add non-zero change amounts
-          change[insertIndex] = outputChange;
-          insertIndex++;
+        // Only add non-zero change amounts
+        change[insertIndex] = outputChange;
+        insertIndex++;
       }
+    }
+
+    // Return array of valid changes (ignoring trailing 0s)
+    return change.slice(0, insertIndex);
   }
+  concatByteArrays(...arrays) {
+    // Calculate the total length of the concatenated array
+    const totalLength = arrays.reduce((sum, arr) => sum + arr.length, 0);
 
-  // Return array of valid changes (ignoring trailing 0s)
-  return change.slice(0, insertIndex);
-}
-concatByteArrays(...arrays) {
-  // Calculate the total length of the concatenated array
-  const totalLength = arrays.reduce((sum, arr) => sum + arr.length, 0);
+    // Create a new Uint8Array with the total length
+    const result = new Uint8Array(totalLength);
 
-  // Create a new Uint8Array with the total length
-  const result = new Uint8Array(totalLength);
-
-  // Copy each array into the result
-  let offset = 0;
-  for (const arr of arrays) {
+    // Copy each array into the result
+    let offset = 0;
+    for (const arr of arrays) {
       result.set(arr, offset);
       offset += arr.length;
+    }
+
+    return result;
   }
+  async createBlindTx(inputs, destination, amountsToTransfer) {
+    const wally = await import("wallycore");
+    let concatAbfs = new Uint8Array(0);
+    let concatVbfs = new Uint8Array(0);
+    let concatAssetIds = new Uint8Array(0);
+    let concatAssetGenerators = new Uint8Array(0);
 
-  return result;
-}
-async  createBlindTx(inputs, destination, amountsToTransfer) {
-  const wally = await import("wallycore");
-  let concatAbfs = new Uint8Array(0);
-  let concatVbfs = new Uint8Array(0);
-  let concatAssetIds = new Uint8Array(0);
-  let concatAssetGenerators = new Uint8Array(0);
-
-  inputs.forEach((vout) => {
+    inputs.forEach((vout) => {
       concatAbfs = ByteArrayHelpers.concatByteArrays(concatAbfs, vout.abf);
       concatVbfs = ByteArrayHelpers.concatByteArrays(concatVbfs, vout.vbf);
       concatAssetIds = ByteArrayHelpers.concatByteArrays(concatAssetIds, vout.assetId);
       concatAssetGenerators = ByteArrayHelpers.concatByteArrays(concatAssetGenerators, vout.assetGenerator);
-  });
-  const values = [];
-  inputs.forEach((vout, i) => {
-    const filteredValues = vout.value.filter(item => typeof item === 'bigint');
-    values[i] = filteredValues[0];
-  });
-  let outputOffset = 0;
-  values.forEach((vout, i) => {
+    });
+    const values = [];
+    inputs.forEach((vout, i) => {
+      const filteredValues = vout.value.filter(item => typeof item === 'bigint');
+      values[i] = filteredValues[0];
+    });
+    let outputOffset = 0;
+    values.forEach((vout, i) => {
       values[i + outputOffset + inputs.length] = amountsToTransfer[i];
       const outputChange = vout - amountsToTransfer[i];
       if (outputChange > 0) {
-          values[i + outputOffset + inputs.length + 1] = outputChange;
-          outputOffset++;
+        values[i + outputOffset + inputs.length + 1] = outputChange;
+        outputOffset++;
       }
-  });
-  const numOutputs = values.length - inputs.length;
-  const abfsOut = ParentAccount.randomBytes(32 * numOutputs);
-  let vbfsOut = ParentAccount.randomBytes(32 * (numOutputs - 1));
-  const abfsAll = ByteArrayHelpers.concatByteArrays(concatAbfs, abfsOut);
-  const vbfsAll = ByteArrayHelpers.concatByteArrays(concatVbfs, vbfsOut);
-  const finalVbf = wally.asset_final_vbf(values, inputs.length, abfsAll, vbfsAll);
-  vbfsOut =ByteArrayHelpers.concatByteArrays(vbfsOut,finalVbf)
-  const outputTx = wally.tx_init(ParentAccount.TRANSACTION_VERSION_TO_USE, 0, 0, 0);
-  let changeOffset = 0;
-  for (let i = 0; i < inputs.length; i++) {
+    });
+    const numOutputs = values.length - inputs.length;
+    const abfsOut = ParentAccount.randomBytes(32 * numOutputs);
+    let vbfsOut = ParentAccount.randomBytes(32 * (numOutputs - 1));
+    const abfsAll = ByteArrayHelpers.concatByteArrays(concatAbfs, abfsOut);
+    const vbfsAll = ByteArrayHelpers.concatByteArrays(concatVbfs, vbfsOut);
+    const finalVbf = wally.asset_final_vbf(values, inputs.length, abfsAll, vbfsAll);
+    vbfsOut = ByteArrayHelpers.concatByteArrays(vbfsOut, finalVbf)
+    const outputTx = wally.tx_init(ParentAccount.TRANSACTION_VERSION_TO_USE, 0, 0, 0);
+    let changeOffset = 0;
+    for (let i = 0; i < inputs.length; i++) {
       const vout = inputs[i];
       const ephemeralPrivkey = ParentAccount.generateEphemeralKey();
       const ephemeralPubkey = wally.ec_public_key_from_private_key(ephemeralPrivkey);
@@ -244,93 +244,93 @@ async  createBlindTx(inputs, destination, amountsToTransfer) {
       const generator = wally.asset_generator_from_bytes(vout.assetId, abf);
       const valueCommitment = wally.asset_value_commitment(amountsToTransfer[i], vbf, generator);
 
-      const min_val=new BigNumber(1)
+      const min_val = new BigNumber(1)
       const rangeProof = wally.asset_rangeproof(
-          amountsToTransfer[i],
-          destination.blindingPubkey,
-          ephemeralPrivkey,
-          vout.assetId,
-          abf,
-          vbf,
-          valueCommitment,
-          destination.scriptPubkey,
-          generator,
-          min_val,
-          0,
-          36
+        amountsToTransfer[i],
+        destination.blindingPubkey,
+        ephemeralPrivkey,
+        vout.assetId,
+        abf,
+        vbf,
+        valueCommitment,
+        destination.scriptPubkey,
+        generator,
+        min_val,
+        0,
+        36
       );
 
       const surjectionProof = wally.asset_surjectionproof(
-          vout.assetId,
-          abf,
-          generator,
-          ParentAccount.randomBytes(32),
-          concatAssetIds,
-          concatAbfs,
-          concatAssetGenerators
+        vout.assetId,
+        abf,
+        generator,
+        ParentAccount.randomBytes(32),
+        concatAssetIds,
+        concatAbfs,
+        concatAssetGenerators
       );
       wally.tx_add_elements_raw_output(
-          outputTx,
-          destination.scriptPubkey,
-          generator,
-          valueCommitment,
-          ephemeralPubkey,
-          surjectionProof,
-          rangeProof,
-          0
+        outputTx,
+        destination.scriptPubkey,
+        generator,
+        valueCommitment,
+        ephemeralPubkey,
+        surjectionProof,
+        rangeProof,
+        0
       );
       const filteredValues = vout.value.filter(item => typeof item === 'bigint');
 
       const change = filteredValues[i] - amountsToTransfer[i];
       if (change > 0) {
-          const abfChange = abfsOut.slice(i * 32 + changeOffset * 32 + 32, i * 32 + changeOffset * 32 + 64);
-          const vbfChange = vbfsOut.slice(i * 32 + changeOffset * 32 + 32, i * 32 + changeOffset * 32 + 64);
+        const abfChange = abfsOut.slice(i * 32 + changeOffset * 32 + 32, i * 32 + changeOffset * 32 + 64);
+        const vbfChange = vbfsOut.slice(i * 32 + changeOffset * 32 + 32, i * 32 + changeOffset * 32 + 64);
 
-          const changeGenerator = wally.asset_generator_from_bytes(vout.assetId, abfChange);
-          const changeValueCommitment = wally.asset_value_commitment(change, vbfChange, changeGenerator);
+        const changeGenerator = wally.asset_generator_from_bytes(vout.assetId, abfChange);
+        const changeValueCommitment = wally.asset_value_commitment(change, vbfChange, changeGenerator);
 
-          const changeRangeProof = wally.asset_rangeproof(
-              change,
-              this.publicBlindingKey,
-              changeEphemeralPrivkey,
-              vout.assetId,
-              abfChange,
-              vbfChange,
-              changeValueCommitment,
-              this.scriptPubKey,
-              changeGenerator,
-              min_val,
-              0,
-              36
-          );
+        const changeRangeProof = wally.asset_rangeproof(
+          change,
+          this.publicBlindingKey,
+          changeEphemeralPrivkey,
+          vout.assetId,
+          abfChange,
+          vbfChange,
+          changeValueCommitment,
+          this.scriptPubKey,
+          changeGenerator,
+          min_val,
+          0,
+          36
+        );
 
-          const changeSurjectionProof = wally.asset_surjectionproof(
-              vout.assetId,
-              abfChange,
-              changeGenerator,
-              ParentAccount.randomBytes(32),
-              concatAssetIds,
-              concatAbfs,
-              concatAssetGenerators
-          );
+        const changeSurjectionProof = wally.asset_surjectionproof(
+          vout.assetId,
+          abfChange,
+          changeGenerator,
+          ParentAccount.randomBytes(32),
+          concatAssetIds,
+          concatAbfs,
+          concatAssetGenerators
+        );
 
-          wally.tx_add_elements_raw_output(
-              outputTx,
-              this.scriptPubKey,
-              changeGenerator,
-              changeValueCommitment,
-              changeEphemeralPubkey,
-              changeSurjectionProof,
-              changeRangeProof,
-              0
-          );
+        wally.tx_add_elements_raw_output(
+          outputTx,
+          this.scriptPubKey,
+          changeGenerator,
+          changeValueCommitment,
+          changeEphemeralPubkey,
+          changeSurjectionProof,
+          changeRangeProof,
+          0
+        );
 
-          changeOffset++;
+        changeOffset++;
       }
+    }
+
+    return outputTx;
   }
-  
-  return outputTx;
-}
 
 
 

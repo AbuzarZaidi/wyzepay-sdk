@@ -84,11 +84,10 @@ const unblindTxHere = async (mnemonic, childNo, rawTx) => {
   ubtx.vout.forEach((vout) => (vout.value = new BigNumber(vout.value)));
   return ubtx;
 };
-const _getUnblindedVouts = async (txid, { includeOnlyNs, disableCache }) => {
+const _getUnblindedVouts = async (mnemonic,txid, { includeOnlyNs, disableCache }) => {
   const rawTx = await getRawTransaction(txid);
   const unblindedVouts = await unblindTxHere(
-    // this.mnemonic,
-    "abuse pelican major nut another stomach portion tool believe kid intact dune march anchor exile utility wine project ghost easy renew exhaust weapon daughter",
+    mnemonic,
     0,
     rawTx
   );
@@ -97,8 +96,7 @@ const _getUnblindedVouts = async (txid, { includeOnlyNs, disableCache }) => {
     : unblindedVouts.vout;
   return { rawHex: rawTx, unblindedVouts: vouts };
 };
-export const getWalletInfo = async () => {
-  const address = "2dqBJS7gPwALSPEkSuJp5pfaw2eNB15knJ7";
+export const getWalletInfo = async (address,mnemonic) => {
   const blindedUtxos = await getBlindedUtxos(address);
   // console.log(blindedUtxos, "blindedUtxos");
   const unblindedUtxosByTxid = {};
@@ -111,7 +109,7 @@ export const getWalletInfo = async () => {
       }
       return Ns;
     }, []);
-    const { rawHex, unblindedVouts } = await _getUnblindedVouts(txid, {
+    const { rawHex, unblindedVouts } = await _getUnblindedVouts(mnemonic,txid, {
       includeOnlyNs: unspentNsForTxid,
     });
     unblindedUtxosByTxid[txid] = unblindedVouts;

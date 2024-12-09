@@ -74,8 +74,8 @@ const _sumBalancesByAsset = async (txid, unblindedTxVouts, balancesByAsset) => {
   return updatedCacheVouts;
 };
 
-export const getBalances = async () => {
-  const unblindedVoutsByTxid = await getWalletInfo();
+export const getBalances = async (address,mnemonic) => {
+  const unblindedVoutsByTxid = await getWalletInfo(address,mnemonic);
   const balancesByAsset = {};
 
   for (const txid in unblindedVoutsByTxid) {
